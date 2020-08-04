@@ -1,0 +1,10 @@
+Samples	CellNum	Passage	Morphology	Labeled_rate	Date
+SL_rep1	14.25	P55	Good	0.11	Mar18
+SL_rep2	5	P35	Good	0.05	Mar18
+SL_rep3	26.85	P37	Good	0.16	May15
+2i_2d_rep1	8.125	P35	Good	0.012	Mar14
+2i_2d_rep2	9.74	P58	Poor	0.016	Mar18
+mTORi_1d_rep1	6.05	P35	Good	0.019	Mar18
+mTORi_1d_rep2	11.75	P37	Good	0.127	Mar24
+mTORi_2d_rep1	37.75	P37	Good	0.038	May17
+mTORi_2d_rep2	32.5	P37	Good	0.052	May17
