@@ -8,6 +8,7 @@ pacman::p_load(BiocManager, rtracklayer,Rsamtools,
 
 registerDoParallel(cores = 4)
 
+# Input data --------------------------------------------------------------------------------
 importRanges <- function(data, seq_lvls = paste0('chr',c(1:21,'X','Y')))
 {
   format <- toupper(sapply(strsplit(data,'\\.'), tail, 1))
@@ -73,6 +74,8 @@ keepOneTx <- function(count_table, rowname_gene_id = F)
 
   return(new_table)
 }
+
+# stats tools --------------------------------------------------------------------------
 
 SizeFactorCal <- function(gene.counts, RefExpr=NULL)
 {
@@ -146,6 +149,108 @@ kink_index <- function(x, method = "slope")
   }
 }
 
+single_variance_explained <- function(X, Y, is.cor = F)
+{ 
+  stopifnot(length(X) == length(Y))
+  rm.idx = is.na(X) | is.infinite(X) | is.na(Y) | is.infinite(Y)
+  X = X[!rm.idx]
+  Y = Y[!rm.idx]
+  # output correlation
+  if (is.cor) return(cor(X, Y))
+  # or reduced variance: 1 - covariance / variance 
+  1 - var(Y - X) / var(Y) 
+}
+
+multi_variance_explained <- function(X, Y)
+{ # r_squared decomposition of regression through origin
+  # X: n-row matrix with k features, Y: n responses
+  stopifnot(var(Y) > 0 & length(Y) == nrow(X))
+  keep.idx <- !apply(cbind(X, Y), 1, function(x) any(is.na(x) | is.infinite(x)))
+  X_tilde = cbind(1, scale(X[keep.idx, ])) # add an intercept error term ε
+  Y_tilde = scale(Y[keep.idx])
+  beta_hat = solve(t(X_tilde) %*% X_tilde) %*% t(X_tilde) %*% Y_tilde
+  # let the error term ε=0
+  # then R2 = sum(Y_hat^2) / sum(Y_tilde^2), where sum(Y_tilde^2) = length(Y) - 1
+  # R2 decomposition is:
+  c(beta_hat * t(cov(Y_tilde, X_tilde)))[-1]
+}
+
+trim_quantile <- function(x, q = 0.995) {
+  # trim outliers by the indicated quantile
+  if (!is.null(dim(x))) {
+    cbind(trim_quantile(x[, 1], q), trim_quantile(x[, -1], q))
+  } else {
+    x[x > quantile(x, q, na.rm = T)] = quantile(x, q, na.rm = T)
+    x[x < quantile(x, 1-q, na.rm = T)] = quantile(x, 1-q, na.rm = T)
+    return(x)
+  }
+}
+
+# sequence analysis ------------------------------------------------------------------------
+
+interval_pattern_hits <- function(intervals, pattern, which_genome = 'mm10', 
+                                  weight_pos = NA,
+                                  to_coverage = F, out_width = 200)
+{
+  # convert interval to DNA sequence to count the pattern hits
+  if (which_genome == 'mm10')
+    genome <- BSgenome.Mmusculus.UCSC.mm10::BSgenome.Mmusculus.UCSC.mm10
+  if (which_genome == 'mm9')
+    genome <- BSgenome.Mmusculus.UCSC.mm9::BSgenome.Mmusculus.UCSC.mm9
+  
+  # remove ranges beyond genome 
+  seq_lengths <- seqlengths(genome)
+  for (chr in seqlevels(intervals))
+  {
+    chr_idx <- seqnames(intervals) == chr
+    gaps_to_end <- end(intervals[chr_idx]) - seq_lengths[chr] 
+    idx <- gaps_to_end > 0
+    if (sum(idx) > 0) 
+      end(intervals[chr_idx][idx]) = start(intervals[chr_idx][idx]) = seq_lengths[chr] 
+  }
+  seqs <- getSeq(genome, intervals)
+  
+  # output one hot matrix
+  if (pattern == "one_hot")
+    return(sapply(seqs, oneHot_nt))
+  
+  # output the number of matches
+  if (!to_coverage & is.na(weight_pos)) 
+    return(Biostrings::vcountPattern(pattern = pattern, subject = seqs))
+  
+  query.list = Biostrings::vmatchPattern(pattern = pattern, subject = seqs)
+  if (!is.na(weight_pos)) {
+    dists = mclapply(seq_along(query.list), 
+                     function(n) 
+                       sum(1 / (distance(query.list[[n]], IRanges(start = weight_pos[n], width = 0))^2 + 1))
+    )
+    return(unlist(dists))
+  }
+  # otherwise get pattern coverage
+  cov.list = sapply(seq_along(query.list), 
+                    function(n) coverage(query.list[[n]], 
+                                         width = width(intervals[n])))
+  cov.mat = Reduce("rbind", 
+                   lapply(cov.list, 
+                          function(y) spline(x = seq_along(y), 
+                                             y = y,
+                                             n = out_width)$y
+                   )
+  )
+  return(cov.mat)
+}
+
+oneHot_nt <- function(dna) 
+{
+  nt <- c("A", "C", "G", "T")
+  dna %>% as.character %>% strsplit(split='') %>% unlist -> dna
+  mat <- matrix(0, nrow = 4, ncol = length(dna), dimnames = list(nt, seq_along(dna)))
+  mtch <- match(dna, nt)
+  mat[matrix(c(mtch, seq_along(dna)), ncol=2)] <- 1
+  return(mat)
+}
+
+# plot utilities ----------------------------------------------------------------------------
 plot_Vennerable <- function (list_1, list_2, 
                              name_1, name_2,
                              color_set = c(1, 2, 3), 
@@ -171,13 +276,9 @@ plot_Vennerable <- function (list_1, list_2,
   plot(p, gp = gp, show = list(Universe=F), ...)
   pacman::p_load(GeneOverlap)
   grid.text(
-    paste(
-      # "p <", formatC(testGeneOverlap(newGeneOverlap(list_1, list_2))@pval,
-      #                format = "e", digits = 2),"; ",
-      "Jaccard =", round(length(intersect.Vector(list_1, list_2)) / 
-                           length(unique(c(list_1, list_2))), 2)
-  ),
-  x = 0.5, y=0.95, gp=gpar(cex=2))
+    paste("Jaccard =", round(length(intersect.Vector(list_1, list_2)) / 
+                               length(unique(c(list_1, list_2))), 2)),
+    x = 0.5, y=0.95, gp=gpar(cex=2))
 }
 
 get_dens <- function(X, Y, n.grid = 100) {
@@ -190,6 +291,15 @@ get_dens <- function(X, Y, n.grid = 100) {
   # X_cut <- cut(X, seq(min(X), max(X), diff(range(X)) / n.grid ) )
   # Y_cut <- cut(Y, seq(min(Y), max(Y), diff(range(Y)) / n.grid ) )
   # den <- as.numeric(sqrt(table(X_cut)[X_cut] * table(Y_cut)[Y_cut]))
+}
+
+add.alpha <- function(col, alpha=1)
+{
+  if(missing(col))
+    stop("Please provide a vector of colours.")
+  apply(sapply(col, col2rgb) / 255, 2,
+        function(x)
+          rgb(x[1], x[2], x[3], alpha=alpha))
 }
 
 # graphic settings ---------------------------------------------------------------------------
@@ -219,15 +329,8 @@ colors_20 <- c('#bf4040', '#cc8800', '#808000', '#408000', '#006622', '#2d8659',
 colors_n <- c('#c90000', '#c94600', '#c99700', '#6f9c00', '#009c56', '#00838f',
               '#0550b3', '#3e0080', '#560659', '#adadad')
 
-add.alpha <- function(col, alpha=1)
-{
-  if(missing(col))
-    stop("Please provide a vector of colours.")
-  apply(sapply(col, col2rgb)/255, 2,
-        function(x)
-          rgb(x[1], x[2], x[3], alpha=alpha))
-}
 
+# extensions -------------------------------------------------------------------------------
 `%+=%` = function(e1, e2) eval.parent(substitute(e1 <- e1 + e2))
 `%-=%` = function(e1, e2) eval.parent(substitute(e1 <- e1 - e2))
 `%*=%` = function(e1, e2) eval.parent(substitute(e1 <- e1 * e2))
