@@ -226,7 +226,7 @@ readCoverage <- function(bam.files, object.gr, targets = "all", flank.size, is.f
         all.index <- all.index & with(sr.in.ranges[[n]], !is.na(isize))
         sr.in.ranges[[n]]$isize = with(sr.in.ranges[[n]], mpos-pos )
       }
-      srg.temp <- c(srg.temp, list(lapply(sr.in.ranges[[n]],function(x) x=x[all.index] )) )
+      srg.temp <- c(srg.temp, list(lapply(sr.in.ranges[[n]], function(x) x=x[all.index] )) )
     }
     names(srg.temp) = names(sr.in.ranges)
     # combine multiple bam files
@@ -288,8 +288,9 @@ resizeCov = function(cov.list, df=10, len=100)
 {
   foreach(i=seq_along(cov.list), .combine = rbind) %dopar%
   {
-    cov = smooth.spline(x = seq_along(cov.list[i]), y = as.numeric(cov.list[i]), df = df)$y
-    cov = spline(x=seq_along(cov), y=cov, n = len, method = 'natural')$y
+    if (class(cov.list[i]) == "list") cov.tmp = cov.list[[i]] else cov.tmp = cov.list[i]
+    cov = smooth.spline(x = seq_along(cov.tmp), y = as.numeric(cov.tmp), df = df)$y
+    cov = spline(x = seq_along(cov), y = cov, n = len, method = 'natural')$y
     cov[cov < 0] = 0
     cov
   }
@@ -372,12 +373,10 @@ resizeCov = function(cov.list, df=10, len=100)
 
 extend_range <- function(x, up_flank, down_flank)
 {
-  x_new <- GRanges()
-  foreach(i = seq_along(x), .combine = c) %dopar% {
-    reduce(c(flank(x[i], up_flank, T), x[i], flank(x[i], down_flank, F)))
-  }
-  mcols(x_new) <- mcols(x)
-  x_new
+  .strand = as.character(strand(x))
+  start(x) = start(x) - ifelse(.strand %in% c("+", "*"), up_flank, down_flank)
+  end(x) = end(x) + ifelse(.strand %in% c("-", "*"), up_flank, down_flank)
+  x
 }
 
 readBam <- function(bam_files, intervals, pair_end = F, stranded = F,
@@ -385,8 +384,18 @@ readBam <- function(bam_files, intervals, pair_end = F, stranded = F,
                     new_lens = c(up=100, mid=50, down=200))
 { # extract interval read coverage with flanking regions from bam files
   # save to a list object for each bam file
-  registerDoParallel(cores = 2)
-  if (!is.null(flanks)) intervals <- extend_range(intervals, flanks[1], flanks[2])
+  if (is.null(flanks) & length(unique(width(intervals))) > 1) stop("Interval without resizing must be the same width.")
+  registerDoParallel(cores = 10)
+  
+  intervals <- keepSeqlevels(intervals, as.character(unique(seqnames(intervals))))
+  
+  if (!is.null(flanks)) 
+  {
+    intervals <- extend_range(intervals, flanks[1], flanks[2])
+  } else {
+    flanks <- c(0, 0)
+  }
+  
   cov_dat <- foreach(bam_path = bam_files) %dopar%
   {
       bam.index=paste0(bam_path,'.bai')
@@ -418,21 +427,22 @@ readBam <- function(bam_files, intervals, pair_end = F, stranded = F,
                                               width = qwidth ),
                                       width = width(intervals[n]) ))
         if ( .strand == '-') .cov = rev(.cov)
-        # .cov = smooth.spline(x = seq_len(width(intervals[n])), y=as.numeric(.cov), df = 100)$y
-        plot(loess(as.numeric(.cov) ~ seq_len(width(intervals[n]))))
+        .cov = smooth.spline(x = seq_len(width(intervals[n])), y=as.numeric(.cov), df = 200)$y
 
-        if (!is.null(flanks))
+        if (sum(flanks) > 0)
         {
           .cov_resize = NULL
-          if (sum(flanks[1]) > 0) .cov_resize = c(.cov_resize, spline(x=seq_len(flanks[1]),
-                                                                 y=.cov[seq_len(flanks[1])],
-                                                                 n = new_lens[1],
-                                                                 method = 'natural')$y)
-          .cov_resize = c(.cov_resize, spline(x=seq_len(width(intervals[n]) - sum(flanks)),
-                                              y=.cov[(sum(flanks[1]) + 1) : (width(intervals[n]) - sum(flanks[2]))],
+          if (flanks[1] > 0) .cov_resize = spline(x=seq_len(flanks[1]),
+                                                  y=.cov[seq_len(flanks[1])],
+                                                  n = new_lens[1],
+                                                  method = 'natural')$y
+          
+          .cov_resize = c(.cov_resize, spline(x = seq_len(width(intervals[n]) - sum(flanks)),
+                                              y = .cov[(sum(flanks[1]) + 1) : (width(intervals[n]) - sum(flanks[2]))],
                                               n = new_lens[2],
                                               method = 'natural')$y)
-          if (sum(flanks[2]) > 0) .cov_resize = c(.cov_resize, spline(x=seq_len(sum(flanks[2])),
+          
+          if (flanks[2] > 0) .cov_resize = c(.cov_resize, spline(x=seq_len(sum(flanks[2])),
                                                                       y=.cov[(width(intervals[n]) - sum(flanks[2]) + 1) : width(intervals[n])],
                                                                       n = new_lens[3],
                                                                       method = 'natural')$y)
@@ -528,7 +538,7 @@ viewCoverage <- function(bam.file.iist, bam.sample.names = NULL,
     out[out < 0] <- 0
     if (log_scale) {
       out[out < low_cut] <- 1
-      return(log(out))
+      return(log10(out))
     }
     out
   }
@@ -640,6 +650,17 @@ viewCoverage <- function(bam.file.iist, bam.sample.names = NULL,
       barplot(height = -as.numeric(h.exon.minus), col='#0000B2', add = TRUE,
               axes = FALSE, space = 0, border = NA, offset = -3)
       
+      
+      # height <- 1
+      # if (is(xlim, "IntegerRanges"))
+      #   xlim <- c(min(start(xlim)), max(end(xlim)))
+      # bins <- disjointBins(IRanges(start(x), end(x) + 1))
+      # plot.new()
+      # plot.window(xlim, c(0, max(bins)*(height + sep)))
+      # ybottom <- bins * (sep + height) - height
+      # rect(start(x)-0.5, ybottom, end(x)+0.5, ybottom + height, col=col, ...)
+      
+      
       # gene names
       label.plus = genes.plus.anno$gene_name
       label.minus = genes.minus.anno$gene_name
@@ -689,21 +710,21 @@ viewCoverage <- function(bam.file.iist, bam.sample.names = NULL,
     if (length(label.plus) > 0) 
     {
       text(x = mid.plus, y = 7, labels = label.plus, cex = anno_text_cex)
-      arrows(x0 = start.plus, y0 = 9, 
-             x1 = start.plus + width(interval) / 40, y1 = 9, 
+      arrows(x0 = start.plus, y0 = 8, 
+             x1 = start.plus + width(interval) / 50, y1 = 8, 
              code = 2, angle = 10, cex = 0.1, length = 0.05)
       arrows(x0 = start.plus, y0 = 3.5, 
-             x1 = start.plus, y1 = 8.9, length = 0)
+             x1 = start.plus, y1 = 7.9, length = 0)
     }
     
     if (length(label.minus) > 0) 
     {
       text(x = mid.minus, y = -7, labels = label.minus, cex = anno_text_cex)
-      arrows(x0 = start.minus, y0 = -9, 
-             x1 = start.minus - width(interval) / 40, y1 = -9, 
-             code = 2, angle = 10, cex = 0.1, length = 0.1)
+      arrows(x0 = start.minus, y0 = -8, 
+             x1 = start.minus - width(interval) / 50, y1 = -8, 
+             code = 2, angle = 10, cex = 0.1, length = 0.05)
       arrows(x0 = start.minus, y0 = -3.5, 
-             x1 = start.minus, y1 = -8.9, length = 0)
+             x1 = start.minus, y1 = -7.9, length = 0)
     }
   }
 }
