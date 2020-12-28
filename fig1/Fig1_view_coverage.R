@@ -9,7 +9,7 @@ L_sf = readRDS("../data/LRNA.sizefactor.RData")
 F_sf = readRDS("../data/FRNA.sizefactor.RData")
 
 Gene_input = importRanges("/mnt/0E471D453D8EE463/genomeDir/Mus_musculus.GRCm38.79.gtf")
-TU_input = importRanges("../data/TU_anno/other/TU_filter+LRNA_SL_rep1.Aligned.sortedByCoord.out.gtf")
+TU_input = importRanges("../data/TU_anno/mm10/TU_filter+LRNA_SL.gff3")
 
 # bam.file.iist:
 #  - bam.files of different samples (output will average replicates after normalization)
@@ -38,7 +38,7 @@ size.factor.list = list("LRNA_SL" = L_sf[grep("SL", names(L_sf))],
 annotation_list <- vector(mode = "list", length = 2)
 names(annotation_list) <- c("Gene", "TU")
 
-annotation_list = list("Gene" = Gene_input,
+annotation_list = list("Gene" = Gene_input[!grepl("Gm", Gene_input$gene_name)],
                        "TU" = TU_input)
 
 cov_color_list = list("LRNA_SL" = c("plus"=colors_20[13], "minus"=add.alpha(colors_20[13],.4)),
@@ -47,14 +47,19 @@ cov_color_list = list("LRNA_SL" = c("plus"=colors_20[13], "minus"=add.alpha(colo
                       "FRNA_SL" = c("plus"=colors_20[13], "minus"=add.alpha(colors_20[13],.4)),
                       "FRNA_2i" = c("plus"=colors_20[2], "minus"=add.alpha(colors_20[2],.4)),
                       "FRNA_mTORi" = c("plus"=colors_20[20], "minus"=add.alpha(colors_20[20],.4)) )
-# Pou5f1
+
+# Kit
+pdf("figs/Fig1_genome_view_kit.pdf", width = 4, height = 8.5)
 viewCoverage(bam.file.iist = bam.file.iist, 
-             interval = GRanges(seqnames = 'chr17', IRanges(start=35503263, end=35511121), strand="+"),
+             interval = GRanges(seqnames = 'chr5', 
+                                IRanges(start=75545000, end=75667000), strand = "+"),
              stranded = T, 
-             size.factor.list = size.factor.list, 
-             log_scale = T, smoothen = F, 
+             size.factor.list = size.factor.list,
+             low_cut = 2, log_scale = T, bin_width = 400,
+             smoothen = F,
              cov_color_list = cov_color_list, 
              annotation_list = annotation_list)
+dev.off()
 
 # Trp53
 # H2afz
@@ -62,14 +67,30 @@ viewCoverage(bam.file.iist = bam.file.iist,
 # Axin2 Cdkn1b 
 # Dppa2 Dppa4
 
+# Tbx3
+pdf("figs/Fig1_genome_view_Tbx3.pdf", width = 6, height = 7)
+viewCoverage(bam.file.iist = bam.file.iist, 
+             interval = GRanges(seqnames = 'chr5', 
+                                IRanges(start = 119650000, end = 119693000), strand = "+"),
+             stranded = T, 
+             size.factor.list = size.factor.list,
+             low_cut = 2.5, log_scale = T, bin_width = 200,
+             smoothen = F, anno_text_cex = 1, anno_text_offset = 1.8,
+             cov_color_list = cov_color_list, 
+             annotation_list = annotation_list)
+dev.off()
+
+
 # Myc (cMyc) 40 kb window
 pdf("figs/Fig1_genome_view_myc.pdf", width = 8, height = 8.5)
 viewCoverage(bam.file.iist = bam.file.iist, 
              interval = GRanges(seqnames = 'chr15', IRanges(start=61977931, end=61977931+40000), strand="+"),
              stranded = T, is.fragment = F,
              size.factor.list = size.factor.list, 
-             log_scale = T, smoothen = F, low_cut = 3,
-             bin_width = 90, 
+             log_scale = T, 
+             smoothen = T, df = 500,
+             low_cut = 1,
+             bin_width = 150, 
              cov_color_list = cov_color_list, 
              annotation_list = annotation_list,
              anno_box_height = 1.6,
@@ -83,9 +104,17 @@ viewCoverage(bam.file.iist = bam.file.iist,
              stranded = T, 
              size.factor.list = size.factor.list, 
              log_scale = T, smoothen = F, 
+             bin_width = 100, 
              cov_color_list = cov_color_list, 
              annotation_list = annotation_list)
 dev.off()
 
-
+# Pou5f1
+viewCoverage(bam.file.iist = bam.file.iist, 
+             interval = GRanges(seqnames = 'chr17', IRanges(start=35503263, end=35511121), strand="+"),
+             stranded = T, 
+             size.factor.list = size.factor.list, 
+             log_scale = T, smoothen = T, df = 200,
+             cov_color_list = cov_color_list, 
+             annotation_list = annotation_list)
 

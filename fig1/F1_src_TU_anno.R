@@ -1,5 +1,3 @@
-setwd(dirname(rstudioapi::getSourceEditorContext()$path))
-
 # functions ------------------------------------------------------------------------
 Count_RNA_reads <- function(TU.list, bam_files)
 {
@@ -25,20 +23,32 @@ Count_RNA_reads <- function(TU.list, bam_files)
   return(TU.out)
 }
 
-setNamesLRNACounts <- function(readCounts)
+setNames_normCounts <- function(readCounts, LRNA.sizefactor, FRNA.sizefactor)
 {
-  readCounts <- readCounts[, !grepl("FRNA", colnames(readCounts))]
+  # readCounts <- readCounts[, !grepl("FRNA", colnames(readCounts))]
   colnames(readCounts) <- gsub("\\.Aligned.*", "\\1", colnames(readCounts))
   colnames(readCounts) <- gsub("\\.", "\\_", colnames(readCounts))
   colnames(readCounts) <- gsub("SLmTORi_24|SLmt_24", "mTORi_1d", colnames(readCounts))
   colnames(readCounts) <- gsub("mTORi_1d$", "mTORi_1d_rep2", colnames(readCounts))
   colnames(readCounts) <- gsub("SLmt48h", "mTORi_2d", colnames(readCounts))
-  colnames(readCounts) <- gsub("LRNA\\_", "\\2", colnames(readCounts))
-  # colnames(readCounts) <- gsub("^2i_", "2i_2d_", colnames(readCounts))
-  # colnames(readCounts) <- gsub("2i7d_", "2i_7d_", colnames(readCounts))
-  readCounts
-  # readCounts <- readCounts[, names(LRNA.sizefactor)]
-  # as.data.frame(t(t(as.matrix(readCounts)) / LRNA.sizefactor))
+  # colnames(readCounts) <- gsub("LRNA\\_", "\\2", colnames(readCounts))
+  names(FRNA.sizefactor) <- paste0("FRNA_", names(FRNA.sizefactor))
+  names(LRNA.sizefactor) <- paste0("LRNA_", names(LRNA.sizefactor))
+  
+  round(cbind(t(t(as.matrix(readCounts[, names(FRNA.sizefactor)])) / FRNA.sizefactor),
+              t(t(as.matrix(readCounts[, names(LRNA.sizefactor)])) / LRNA.sizefactor)), 2)
+}
+
+find_mm10_gene_id <- function(intervals) {
+  gene.gr <- GenomicFeatures::genes(EnsDb.Mmusculus.v79::EnsDb.Mmusculus.v79)
+  gene.gr <- `seqlevelsStyle<-`(gene.gr, "UCSC")
+  gene.gr <- gene.gr[gene.gr$gene_biotype == 'protein_coding']
+  gene.gr <-  gene.gr[width(gene.gr) < 2500000]
+  
+  mtch <- findOverlaps(intervals, gene.gr, ignore.strand = F)
+  gene_ids <- rep(NA, length(intervals))
+  gene_ids[queryHits(mtch)] <- gene.gr$gene_id[subjectHits(mtch)]
+  gene_ids
 }
 
 convert_expr <- function (TU.gr, TU.expr, bin_size = 200L, type = "TPM")
@@ -81,60 +91,112 @@ jaccard_index_pair = function(TU.gr.list)
 }
 
 # read in annotations ------------------------------------------------------------------------
-TU.list <- list("SL_rep1" = importRanges("../data/TU_anno/other/TU_filter+LRNA_SL_rep1.Aligned.sortedByCoord.out.gtf"),
-                "SL_rep2" = importRanges("../data/TU_anno/other/TU_filter+LRNA_SL_rep2.Aligned.sortedByCoord.out.gtf"),
-                "SL_rep3" = importRanges("../data/TU_anno/other/TU_filter+LRNA_SL_rep3.Aligned.sortedByCoord.out.gtf"),
-                "2i_rep1" = importRanges("../data/TU_anno/other/TU_filter+LRNA_2i_rep1.Aligned.sortedByCoord.out.gtf"),
-                "2i_rep2" = importRanges("../data/TU_anno/other/TU_filter+LRNA_2i_rep2.Aligned.sortedByCoord.out.gtf"),
-                "mTORi_1d_rep1" = importRanges("../data/TU_anno/other/TU_filter+LRNA_SLmTORi_1d_rep1.Aligned.sortedByCoord.out.gtf"),
-                "mTORi_1d_rep2" = importRanges("../data/TU_anno/other/TU_filter+LRNA_SLmTORi_1d_rep2.Aligned.sortedByCoord.out.gtf"),
-                "mTORi_2d_rep1" = importRanges("../data/TU_anno/other/TU_filter+LRNA_SLmTORi_2d_rep1.Aligned.sortedByCoord.out.gtf"),
-                "mTORi_2d_rep2" = importRanges("../data/TU_anno/other/TU_filter+LRNA_SLmTORi_2d_rep2.Aligned.sortedByCoord.out.gtf"))
+# mm10 annotations
+TU.list <- list("SL" = importRanges("../data/TU_anno/mm10/TU_filter+LRNA_SL.gff3"),
+                "2i_2d" = importRanges("../data/TU_anno/mm10/TU_filter+LRNA_2i_2d.gff3"),
+                "mTORi_1d" = importRanges("../data/TU_anno/mm10/TU_filter+LRNA_mTORi_1d.gff3"),
+                "mTORi_2d" = importRanges("../data/TU_anno/mm10/TU_filter+LRNA_mTORi_2d.gff3") )
 
 # count reads on annotated TUs
 bam_files <- list.files("/mnt/0E471D453D8EE463/TT_seq_data/bam_sl_2i_mm10",
                         pattern = ".bam$", full.names = T)
 
-# LRNA.sizefactor <- readRDS("../data/LRNA.sizefactor.RData")
+LRNA.sizefactor <- readRDS("../data/LRNA.sizefactor.RC.RData")
+FRNA.sizefactor <- readRDS("../data/FRNA.sizefactor.RC.RData")
 
+# featureCounts
 TU.counts <- Count_RNA_reads(TU.list = TU.list, bam_files = bam_files)
 mcols(TU.counts) <- cbind(mcols(TU.counts)[, 1],
-                          setNamesLRNACounts(mcols(TU.counts)[, -1]))
+                          setNames_normCounts(mcols(TU.counts)[, -1], LRNA.sizefactor, FRNA.sizefactor))
 
-# Liftover to mm9 for counting bam files
-TU.list.mm9 <- lapply(TU.list, function(x)
-  liftOver(x, chain = import.chain("../data/liftOver_chains/mm10ToMm9.over.chain")) %>%
-    unlist)
+library(magrittr)
+TU.counts.mat <- data.frame("seqname" = as.character(seqnames(TU.counts)), 
+                            "start" = start(TU.counts),
+                            "end" = end(TU.counts),
+                            "strand" = as.character(strand(TU.counts)),
+                            "location" = as.character(mcols(TU.counts)[, 1]),
+                            "gene_id" = find_mm10_gene_id(TU.counts))
+TU.counts.mat[TU.counts.mat$location != "protein_coding" & !is.na(TU.counts.mat$gene_id), "gene_id"] <- NA
+TU.counts.mat <- cbind(TU.counts.mat, 
+                       (mcols(TU.counts)[, -1]) %>% as.data.frame() %<>%
+                         mutate_if(is.factor, as.character) %<>% 
+                         mutate_if(is.character, as.numeric))
 
-TU.counts.mm9 <- Count_RNA_reads(
-  TU.list = TU.list.mm9,
-  bam_files = list.files("/mnt/0E471D453D8EE463/TT_seq_data/bam_sl_2i_mm9",
-                         pattern = ".bam$", full.names = T))
-# saveRDS(TU.counts.mm9, "data/TU.read.counts.mm9.RData")
+if (T) {
+  # mm9 read counts
+  TU.list.mm9 <- list("SL" = importRanges("../data/TU_anno/mm9/TU_filter+LRNA_SL.mm9.gff3"),
+                      "2i_2d" = importRanges("../data/TU_anno/mm9/TU_filter+LRNA_2i_2d.mm9.gff3"),
+                      "mTORi_1d" = importRanges("../data/TU_anno/mm9/TU_filter+LRNA_mTORi_1d.mm9.gff3"),
+                      "mTORi_2d" = importRanges("../data/TU_anno/mm9/TU_filter+LRNA_mTORi_2d.mm9.gff3") )
+  bam_files.mm9 <- list.files("/mnt/0E471D453D8EE463/TT_seq_data/bam_sl_2i_mm9",
+                              pattern = ".bam$", full.names = T)
+  TU.counts.mm9 <- Count_RNA_reads(TU.list.mm9, bam_files.mm9)
 
-TU.TPM.mm9 <- TU.counts.mm9
-mcols(TU.TPM.mm9)[, -1] <- apply(mcols(TU.counts.mm9)[, -1], 2, convert_expr, TU.gr = TU.counts.mm9)
-mtch <- findOverlaps(TU.TPM.mm9, TU.list.mm9[[1]], ignore.strand = F)
-TU.TPM.mm9$gene_id <- NA
-TU.TPM.mm9$gene_id[queryHits(mtch)] <- TU.list.mm9[[1]]$gene_id[subjectHits(mtch)]
-
-# save output
-# saveRDS(TU.list, "data/TU.list.RData")
-saveRDS(TU.counts, "data/TU.counts.RData")
-saveRDS(TU.TPM.mm9, "data/TU.TPM.mm9.RData")
+  mtch <- findOverlaps(TU.counts.mm9, TU.list.mm9[[1]], ignore.strand = F)
+  TU.counts.mm9$gene_id <- NA
+  TU.counts.mm9$gene_id[queryHits(mtch)] <- TU.list.mm9[[1]]$gene_id[subjectHits(mtch)]
+  
+  TU.counts.mat.mm9 <- data.frame("seqname" = as.character(seqnames(TU.counts.mm9)), 
+                              "start" = start(TU.counts.mm9),
+                              "end" = end(TU.counts.mm9),
+                              "strand" = as.character(strand(TU.counts.mm9)),
+                              "location" = mcols(TU.counts.mm9)[, 1],
+                              "gene_id" = TU.counts.mm9$gene_id)
+  TU.counts.mat.mm9[TU.counts.mat.mm9$location != "protein_coding" & !is.na(TU.counts.mat.mm9$gene_id), "gene_id"] <- NA
+  TU.counts.mat.mm9 <- cbind(TU.counts.mat.mm9, 
+                             setNames_normCounts(mcols(TU.counts.mm9)[, -1], LRNA.sizefactor, FRNA.sizefactor))
+  mcols(TU.counts.mm9) <- cbind(mcols(TU.counts.mm9)[, 1],
+                                setNames_normCounts(mcols(TU.counts.mm9)[, -1], LRNA.sizefactor, FRNA.sizefactor))
+}
 
 # export ncRNA sequences, for alignment free counting with all tx references
-# will be applied for half-life calculation at the later steps
-TU.mm9.seq <- getSeq(BSgenome.Mmusculus.UCSC.mm9::BSgenome.Mmusculus.UCSC.mm9,
-                     TU.TPM.mm9)
-names(TU.mm9.seq) = paste(TU.TPM.mm9$location,
-                          seqnames(TU.TPM.mm9),
-                          start(TU.TPM.mm9),
-                          end(TU.TPM.mm9),
-                          strand(TU.TPM.mm9), sep = "_")
-TU.mm9.seq <- TU.mm9.seq[TU.TPM.mm9$location != "protein_coding"]
-# writeXStringSet(TU.mm9.seq, "data/combined_ncRNA_seq.mm9.fa")
+# for half-life and copy estimation in figure 2
+if (F) {
+  TU.mm10.seq <- getSeq(BSgenome.Mmusculus.UCSC.mm10::BSgenome.Mmusculus.UCSC.mm10,
+                        TU.counts)
+  names(TU.mm10.seq) = paste(TU.counts$location,
+                             seqnames(TU.counts),
+                             start(TU.counts),
+                             end(TU.counts),
+                             strand(TU.counts), 
+                             sep = "_")
+  TU.mm10.seq <- TU.mm10.seq[TU.counts$location != "protein_coding"]
+  writeXStringSet(TU.mm10.seq, "data/combined_ncRNA_seq.mm10.fa")
+  
+  seq_lengths <- BSgenome::getBSgenome("mm9") %>% 
+    seqlengths() %>% '['(names(seqlengths(TU.counts.mm9)))
+  
+  for (i in names(seq_lengths)) {
+    start(TU.counts.mm9[seqnames(TU.counts.mm9) == i & start(TU.counts.mm9) > seq_lengths[i]]) <- 
+      seq_lengths[i]
+    end(TU.counts.mm9[seqnames(TU.counts.mm9) == i & end(TU.counts.mm9) > seq_lengths[i]]) <-
+      seq_lengths[i]
+  }
+  
+  TU.mm9.seq <- getSeq(BSgenome.Mmusculus.UCSC.mm9::BSgenome.Mmusculus.UCSC.mm9,
+                       TU.counts.mm9)
+  names(TU.mm9.seq) = paste(TU.counts.mm9$location,
+                            seqnames(TU.counts.mm9),
+                            start(TU.counts.mm9),
+                            end(TU.counts.mm9),
+                            strand(TU.counts.mm9), 
+                            sep = "_")
+  TU.mm9.seq <- TU.mm9.seq[TU.counts.mm9$location != "protein_coding"]
+  writeXStringSet(TU.mm9.seq, "data/combined_ncRNA_seq.mm9.fa")
+}
 
+# ----------------------------------------------------------------------------------------------------------
+if (T) {
+  TU.list <- list("SL_rep1" = importRanges("../data/TU_anno/mm10_rep/TU_filter+LRNA_SL_rep1.Aligned.sortedByCoord.out.gff3"),
+                  "SL_rep2" = importRanges("../data/TU_anno/mm10_rep/TU_filter+LRNA_SL_rep2.Aligned.sortedByCoord.out.gff3"),
+                  "SL_rep3" = importRanges("../data/TU_anno/mm10_rep/TU_filter+LRNA_SL_rep3.Aligned.sortedByCoord.out.gff3"),
+                  "2i_rep1" = importRanges("../data/TU_anno/mm10_rep/TU_filter+LRNA_2i_2d_rep1.Aligned.sortedByCoord.out.gff3"),
+                  "2i_rep2" = importRanges("../data/TU_anno/mm10_rep/TU_filter+LRNA_2i_2d_rep2.Aligned.sortedByCoord.out.gff3"),
+                  "mTORi_1d_rep1" = importRanges("../data/TU_anno/mm10_rep/TU_filter+LRNA_mTORi_1d_rep1.Aligned.sortedByCoord.out.gff3"),
+                  "mTORi_1d_rep2" = importRanges("../data/TU_anno/mm10_rep/TU_filter+LRNA_mTORi_1d_rep2.Aligned.sortedByCoord.out.gff3"),
+                  "mTORi_2d_rep1" = importRanges("../data/TU_anno/mm10_rep/TU_filter+LRNA_mTORi_2d_rep1.Aligned.sortedByCoord.out.gff3"),
+                  "mTORi_2d_rep2" = importRanges("../data/TU_anno/mm10_rep/TU_filter+LRNA_mTORi_2d_rep2.Aligned.sortedByCoord.out.gff3"))
+}
 # reads distribution across TU types ------------------------------------------------------------------------
 nascent_reads.list <- lapply(TU.list,
                      function(TU) aggregate(convert_expr(TU, TU$expr, bin_size = 200, type = "Read"),
@@ -154,73 +216,102 @@ nascent_reads <- nascent_reads[nascent_reads$location %in% tu_of_interest, ]
 nascent_reads$location <- factor(nascent_reads$location, levels = tu_of_interest)
 nascent_reads$Abundance <- as.numeric(nascent_reads$Abundance)
 
-write.table(nascent_reads, "data/Fig1_Tx_read_abundance.txt",
-            quote = F, row.names = F, col.names = T, sep = "\t")
+saveRDS(nascent_reads, "data/nascent_reads.RData")
 
-# total reads, FRNA
-total_reads <- TU.counts %>% mcols() %>% as.data.frame() %>%
-  dplyr::select(matches("FRNA")) %>%
-  dplyr::group_by(TU.counts$location) %>%
-  summarise_all(sum) %>%
-  as.data.frame() # sum reads for each type
-total_reads[, -1] <- total_reads[, -1] %>%
-  sapply(function(x) x / sum(x) * 100 ) %>% unlist() # convert to percent
-total_reads[, 1][total_reads[, 1] == "protein_coding"] <- "mRNA"
-total_reads <- total_reads[total_reads[, 1] %in% tu_of_interest, ]
-total_reads <- reshape2::melt(total_reads,
-                              id = "TU.counts$location")
-colnames(total_reads) <- c("location", "Sample", "Abundance")
-total_reads$Sample <- gsub("\\.", "_", gsub("FRNA.(.*).Aligned.*", "\\1", total_reads$Sample))
-total_reads$location <- factor(total_reads$location, levels = tu_of_interest)
-total_reads$Abundance <- as.numeric(total_reads$Abundance)
-
-write.table(total_reads, "data/Fig1_Total_read_abundance.txt",
-            quote = F, row.names = F, col.names = T, sep = "\t")
-
-
-# TPM ------------------------------------------------------------------------
-total_TPM <- data.frame()
-for (i in seq_along(TU.list))
-{
-  total_TPM <- rbind(total_TPM,
-                    cbind(TU.list[[i]]$location,
-                          convert_expr(TU.list[[i]]$expr, bin_size = 200, type = "TPM"),
-                          names(TU.list)[i])
-                    )
-}
-colnames(total_TPM) <- c("location", "TPM", "Sample")
-total_TPM$location <- as.character(total_TPM$location)
-total_TPM$location[total_TPM$location == "protein_coding"] <- "mRNA"
-total_TPM <- total_TPM[total_TPM$location %in%
+# TPM per location -------------------------------------------------------------------
+if (T) {
+  TU.counts2 <- mcols(TU.counts)[, -(1:11)] %>% as.data.frame() %<>%
+    mutate_if(is.factor, as.character) %<>% 
+    mutate_if(is.character, as.numeric) %>% "/"(width(TU.counts) * 1e3)
+  TU.counts2 <- sweep(TU.counts2, 2, colSums(TU.counts2) / 1e6, "/")
+  TU.counts2 <- cbind("location" = mcols(TU.counts)[, 1], 
+                      as.data.frame(TU.counts2))
+  
+  total_TPM <- reshape::melt(TU.counts2)
+  colnames(total_TPM) <- c("location", "Sample", "TPM")
+  total_TPM$Sample <- gsub("X", "", total_TPM$Sample)
+  total_TPM$location <- as.character(total_TPM$location)
+  total_TPM$location[total_TPM$location == "protein_coding"] <- "mRNA"
+  total_TPM$location[total_TPM$location == "antisense"] <- "asRNA"
+  total_TPM <- total_TPM[total_TPM$location %in%
                            c("mRNA", "intergenic", "asRNA", "uaRNA", "conRNA", "daRNA"), ]
-total_TPM$location <- factor(total_TPM$location ,
-                              levels = c("mRNA", "intergenic", "asRNA", "uaRNA", "conRNA", "daRNA"))
-total_TPM$TPM <- as.numeric(as.character(total_TPM$TPM))
-saveRDS(total_TPM, "data/total_TPM.RData")
+  total_TPM$location <- factor(total_TPM$location ,
+                               levels = c("mRNA", "intergenic", "asRNA", "uaRNA", "conRNA", "daRNA"))
+  total_TPM$TPM <- as.numeric(as.character(total_TPM$TPM))
+  total_TPM$Sample <- factor(total_TPM$Sample, levels = unique(total_TPM$Sample)[c(7:9, 1:6)])
+  saveRDS(total_TPM, "data/total_TPM.RData")
+}
 
-# ncRNA DE analysis ------------------------------------------------------------------------
+# DE analysis ----------------------------------------------------------------------------
 pacman::p_load(DESeq2)
-# mm10 TU read counts
-count_table <- mcols(TU.counts)[, -1]
-dds <- DESeqDataSetFromMatrix(round(as.matrix(count_table)),
-                              colData = data.frame(condition = gsub("_rep.", "\\2", colnames(mcols(TU.counts))[-1]) ),
-                              design = ~ condition)
-dds <- DESeq(dds)
-res_2i <- results(dds, contrast = c("condition", "2i_2d", "SL"))
-res_mTORi <- results(dds, contrast = c("condition", "mTORi_1d", "SL"))
+# mm10 TU LRNA read counts
+# internal normalized or spike-in normalized differential expression
+get_DE_res <- function(TU.counts.mat, TU.gr) {
+  count_table_FRNA <- TU.counts.mat %>% dplyr::select(matches("FRNA"))
+  count_table_LRNA <- TU.counts.mat %>% dplyr::select(matches("LRNA"))
+  dds_FRNA <- DESeqDataSetFromMatrix(round(as.matrix(count_table_FRNA)),
+                                     colData = data.frame(condition = gsub("FRNA_(.*)_rep.", "\\1", colnames(count_table_FRNA)) ),
+                                     design = ~ condition)
+  dds_LRNA <- DESeqDataSetFromMatrix(round(as.matrix(count_table_LRNA)),
+                                     colData = data.frame(condition = gsub("LRNA_(.*)_rep.", "\\1", colnames(count_table_LRNA)) ),
+                                     design = ~ condition)
+  dds_FRNA <- DESeq(dds_FRNA)
+  dds_LRNA <- DESeq(dds_LRNA)
+  
+  res_FRNA_2i <- results(dds_FRNA, contrast = c("condition", "2i_2d", "SL"))
+  res_FRNA_mTORi <- results(dds_FRNA, contrast = c("condition", "mTORi_1d", "SL"))
+  res_LRNA_2i <- results(dds_LRNA, contrast = c("condition", "2i_2d", "SL"))
+  res_LRNA_mTORi <- results(dds_LRNA, contrast = c("condition", "mTORi_1d", "SL"))
+  
+  sizeFactors(dds_FRNA) <- rep(1, ncol(count_table_FRNA))
+  sizeFactors(dds_LRNA) <- rep(1, ncol(count_table_LRNA))
+  
+  dds_FRNA <- DESeq(dds_FRNA)
+  dds_LRNA <- DESeq(dds_LRNA)
+  
+  res_FRNA_2i_sp <- results(dds_FRNA, contrast = c("condition", "2i_2d", "SL"))
+  res_FRNA_mTORi_sp <- results(dds_FRNA, contrast = c("condition", "mTORi_1d", "SL"))
+  res_LRNA_2i_sp <- results(dds_LRNA, contrast = c("condition", "2i_2d", "SL"))
+  res_LRNA_mTORi_sp <- results(dds_LRNA, contrast = c("condition", "mTORi_1d", "SL"))
+  
+  TU.DE <- TU.gr
+  mcols(TU.DE) <- data.frame("location" = mcols(TU.DE)[, 1],
+                             "gene_id" = TU.counts.mat$gene_id,
+                             "baseMean_FRNA" = res_FRNA_2i[, "baseMean"],
+                             "log2FoldChange_FRNA_2i" = res_FRNA_2i[, "log2FoldChange"],
+                             "padj_FRNA_2i" = res_FRNA_2i[, "padj"],
+                             "log2FoldChange_FRNA_mTORi" = res_FRNA_mTORi[, "log2FoldChange"],
+                             "padj_FRNA_mTORi" = res_FRNA_mTORi[, "padj"],
+                             
+                             "baseMean_LRNA" = res_LRNA_2i[, "baseMean"],
+                             "log2FoldChange_LRNA_2i" = res_LRNA_2i[, "log2FoldChange"],
+                             "padj_LRNA_2i" = res_LRNA_2i[, "padj"],
+                             "log2FoldChange_LRNA_mTORi" = res_LRNA_mTORi[, "log2FoldChange"],
+                             "padj_LRNA_mTORi" = res_LRNA_mTORi[, "padj"],
+                             
+                             "baseMean_FRNA_sp" = res_FRNA_2i_sp[, "baseMean"],
+                             "log2FoldChange_FRNA_sp_2i" = res_FRNA_2i_sp[, "log2FoldChange"],
+                             "padj_FRNA_sp_2i" = res_FRNA_2i_sp[, "padj"],
+                             "log2FoldChange_FRNA_sp_mTORi" = res_FRNA_mTORi_sp[, "log2FoldChange"],
+                             "padj_FRNA_sp_mTORi" = res_FRNA_mTORi_sp[, "padj"],
+                             
+                             "baseMean_LRNA_sp" = res_LRNA_2i_sp[, "baseMean"],
+                             "log2FoldChange_LRNA_sp_2i" = res_LRNA_2i_sp[, "log2FoldChange"],
+                             "padj_LRNA_sp_2i" = res_LRNA_2i_sp[, "padj"],
+                             "log2FoldChange_LRNA_sp_mTORi" = res_LRNA_mTORi_sp[, "log2FoldChange"],
+                             "padj_LRNA_sp_mTORi" = res_LRNA_mTORi_sp[, "padj"]
+  )
+  TU.DE
+}
 
-TU.DE <- TU.counts
-mcols(TU.DE) <- data.frame("location" = mcols(TU.DE)[, 1],
-                           "baseMean" = res_2i[, "baseMean"],
-                           "log2FoldChange_2i" = res_2i[, "log2FoldChange"],
-                           "padj_2i" = res_2i[, "padj"],
-                           "log2FoldChange_mTORi" = res_mTORi[, "log2FoldChange"],
-                           "padj_mTORi" = res_mTORi[, "padj"]
-                           )
-# saveRDS(TU.DE, "data/TU.DE.RData")
+TU.DE.mm10 <- get_DE_res(TU.counts.mat, TU.counts)
+saveRDS(TU.DE.mm10, "data/TU.DE.mm10.RData")
+
+TU.DE.mm9 <- get_DE_res(TU.counts.mat.mm9, TU.counts.mm9)
+saveRDS(TU.DE.mm9, "data/TU.DE.mm9.RData")
 
 # add attributes, direction, enhancer ----------------------------------------------------------------------------
-if (T) {
+if (F) {
   # enhancer in development
   F5_enhancer <- importRanges("../data/F5.mm10.enhancers.bed")
   
@@ -308,72 +399,4 @@ if (T) {
   saveRDS(uni_intergenic_DE, "../fig3/data/uni_intergenic_DE.RData")
 }
 
-# mm9, spike-in norm DE ---------------------------------------------------------------------------
-count_table <- mcols(TU.counts.mm9)[, -1]
-count_table <- count_table[, !grepl("SL2i", colnames(count_table))]
-L_sample_idx <- grepl("LRNA", colnames(count_table))
-dds <- DESeqDataSetFromMatrix(round(as.matrix(count_table[, L_sample_idx])),
-                              colData = data.frame(condition = gsub(".rep.*", "\\2", colnames(count_table)[L_sample_idx]) ),
-                              design = ~ condition)
-sizeFactors(dds) <- readRDS("../data/LRNA.sizefactor.RData")
-dds <- DESeq(dds)
-L_res_2i <- results(dds, contrast = c("condition", "LRNA.2i.2d", "LRNA.SL"))
-L_res_mTORi <- results(dds, contrast = c("condition", "LRNA.mTORi.1d", "LRNA.SL"))
-
-dds <- DESeqDataSetFromMatrix(round(as.matrix(count_table[, !L_sample_idx])),
-                              colData = data.frame(condition = gsub(".rep.*", "\\2", colnames(count_table)[!L_sample_idx]) ),
-                              design = ~ condition)
-sizeFactors(dds) <- readRDS("../data/FRNA.sizefactor.RData")[1:10]
-dds <- DESeq(dds)
-F_res_2i <- results(dds, contrast = c("condition", "FRNA.2i.2d", "FRNA.SL"))
-F_res_mTORi <- results(dds, contrast = c("condition", "FRNA.mTORi.1d", "FRNA.SL"))
-
-TU.DE.mm9 <- TU.counts.mm9 # save as GRanges
-mcols(TU.DE.mm9) <- data.frame("location" = mcols(TU.counts.mm9)[, 1],
-                               "L_baseMean" = L_res_2i[, "baseMean"],
-                               "L_log2FC_2i" = L_res_2i[, "log2FoldChange"],
-                               "L_padj_2i" = L_res_2i[, "padj"],
-                               "L_log2FC_mTORi" = L_res_mTORi[, "log2FoldChange"],
-                               "L_padj_mTORi" = L_res_mTORi[, "padj"],
-                               "F_baseMean" = F_res_2i[, "baseMean"],
-                               "F_log2FC_2i" = F_res_2i[, "log2FoldChange"],
-                               "F_padj_2i" = F_res_2i[, "padj"],
-                               "F_log2FC_mTORi" = F_res_mTORi[, "log2FoldChange"],
-                               "F_padj_mTORi" = F_res_mTORi[, "padj"] )
-
-saveRDS(TU.DE.mm9, "data/TU.DE.external.norm.RData")
-
-# DE with kallisto TPM --------------------------------------------------------------------------
-txRPK <- readRDS("../data/txRPK_SL_2i.RData") # raw tmp without normalization
-L_sample_idx <- grepl("LRNA", colnames(txRPK))
-# LRNA
-dds <- DESeqDataSetFromMatrix(round(as.matrix(txRPK[, L_sample_idx] * 100)), # make the values friendly to the nb model
-                              colData = data.frame(condition = gsub(".rep.*", "\\2", colnames(txRPK)[L_sample_idx]) ),
-                              design = ~ condition) 
-sizeFactors(dds) <- readRDS("../data/LRNA.sizefactor.RData")
-dds <- DESeq(dds)
-L_res_2i <- results(dds, contrast = c("condition", "LRNA_2i_2d", "LRNA_SL"))
-L_res_mTORi <- results(dds, contrast = c("condition", "LRNA_mTORi_1d", "LRNA_SL"))
-# FRNA
-dds <- DESeqDataSetFromMatrix(round(as.matrix(txRPK[, !L_sample_idx] * 100)),
-                              colData = data.frame(condition = gsub(".rep.*", "\\2", colnames(txRPK)[!L_sample_idx]) ),
-                              design = ~ condition) 
-sizeFactors(dds) <- readRDS("../data/FRNA.sizefactor.RData")
-dds <- DESeq(dds)
-F_res_2i <- results(dds, contrast = c("condition", "FRNA_2i_2d", "FRNA_SL"))
-F_res_mTORi <- results(dds, contrast = c("condition", "FRNA_mTORi_1d", "FRNA_SL"))
-
-TX.DE.tpm <- data.frame("gene_id" = rownames(F_res_2i),
-                        "L_baseMean" = L_res_2i[, "baseMean"],
-                        "L_log2FC_2i" = L_res_2i[, "log2FoldChange"],
-                        "L_padj_2i" = L_res_2i[, "padj"],
-                        "L_log2FC_mTORi" = L_res_mTORi[, "log2FoldChange"],
-                        "L_padj_mTORi" = L_res_mTORi[, "padj"],
-                        "F_baseMean" = F_res_2i[, "baseMean"],
-                        "F_log2FC_2i" = F_res_2i[, "log2FoldChange"],
-                        "F_padj_2i" = F_res_2i[, "padj"],
-                        "F_log2FC_mTORi" = F_res_mTORi[, "log2FoldChange"],
-                        "F_padj_mTORi" = F_res_mTORi[, "padj"] )
-
-saveRDS(TX.DE.tpm, "data/TX.DE.tpm.external.norm.RData")
 

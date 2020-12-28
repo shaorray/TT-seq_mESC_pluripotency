@@ -62,19 +62,26 @@ cellCounts$Color <- gsub("(.*)\\_rep.*", "\\1", cellCounts$Samples)
 write.table(cellCounts, "data/Fig1_Splicing_cell_number.txt",
             quote = F, row.names = F, col.names = T, sep = "\t")
 
+# --------------------------------------------------------------------------------------------
 cellCounts <- read.table("data/Fig1_Splicing_cell_number.txt", header = T)
 cellCounts$Color <- factor(cellCounts$Color, c("SL", "2i_2d", "mTORi_1d", "mTORi_2d"))
+cellCounts$Samples <- factor(cellCounts$Samples, unique(cellCounts$Samples))
 
 # plot
-g1 <- ggplot(cellCounts, aes(x = CellNum / 145, y = Spliced * 100, color = Color)) + 
-  geom_point(cex = 3, pch = 15) + 
+ggplot(cellCounts, aes(x = Samples, y = Spliced * 100, fill = Color)) + 
+  geom_bar(stat = "identity") +
+  # geom_point(cex = 3, pch = 15) + 
   geom_linerange(aes(ymin=Spliced_lower * 100, ymax=Spliced_upper * 100)) +
-  xlab("\nCell density (million / cm2)") +
+  # xlab("\nCell density (million / cm2)") +
+  xlab("") +
   ylab("Spliced %\n") +
   ylim(0, 4) +
-  scale_colour_manual(values = colors_20[c(13, 2, 20, 7)]) +
-  labs(color='Samples') +
-  theme_setting
+  scale_fill_manual(values = colors_20[c(13, 2, 20, 7)]) +
+  labs(fill='Samples') +
+  theme_setting +
+  theme(axis.text.x = element_text(size = 8, angle = 45, hjust=1))
 
-ggsave(g1, filename = "Fig1.Splicing_cell_number.pdf", path = "figs", device = "pdf",
+ggsave(filename = "Fig1.Spliced_ratio_sample.pdf", path = "figs", device = "pdf",
        width = 5, height = 4)
+# ggsave(filename = "Fig1.Splicing_cell_number.pdf", path = "figs", device = "pdf",
+#        width = 5, height = 4)
