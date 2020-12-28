@@ -79,15 +79,20 @@ fraction_label_rate_dat <- cbind(fraction_label_rate_dat,
 ) %>% as.data.frame() # 10932  genes
 
 # read in RNA decay rate estimation from SLAM-seq, Herzog et.al, 2017
-pacman::p_load(gdata)
-SLAM.table = read.xls(xls = "../data/41592_2017_BFnmeth4435_MOESM4_ESM.xls", sheet = 1)
+SLAM.table = gdata::read.xls(xls = "../data/41592_2017_BFnmeth4435_MOESM4_ESM.xls", sheet = 1)
+TimeLapse.table = gdata::read.xls("../data/41592_2018_BFnmeth4582_MOESM5_ESM.xlsx", sheet = 2)
 
 # convert gene id
-ks <- keys(org.Mm.eg.db::org.Mm.eg.db, keytype = "ENSEMBL")
-res <- biomaRt::select(org.Mm.eg.db, keys = ks, keytype = "ENSEMBL",
+res <- biomaRt::select(org.Mm.eg.db,
+                       keys = keys(org.Mm.eg.db::org.Mm.eg.db, keytype = "ENSEMBL"),
+                       keytype = "ENSEMBL",
                        columns = c("ENTREZID", "SYMBOL"))
 SLAM.table$gene_id <- res$ENSEMBL[ match(SLAM.table$Name, res$SYMBOL) ]
 SLAM.table <- SLAM.table[!is.na(SLAM.table$gene_id) & SLAM.table$k..cpm.h. > 0, ] # 6534 genes
+
+TimeLapse.table$gene_id <- res$ENSEMBL[ match(TimeLapse.table$transcript, res$SYMBOL) ]
+TimeLapse.table <- TimeLapse.table[!is.na(TimeLapse.table$gene_id), ] # 2912 genes
+rownames(TimeLapse.table) <- TimeLapse.table$gene_id
 
 # combine existing gene counts as the explantory virables
 same_genes <- intersect.Vector(intersect.Vector(SLAM.table$gene_id,
@@ -96,9 +101,11 @@ same_genes <- intersect.Vector(intersect.Vector(SLAM.table$gene_id,
 
 fit_data <- cbind(F_norm_results[match(same_genes, rownames(F_norm_results)), ], 
                   "k" = SLAM.table$k..cpm.h.[match(same_genes, SLAM.table$gene_id)] / 60,
-                  "r" = tx_label_rate$Labeled_rate[match(same_genes, tx_label_rate$gene_id)]) %>% as.data.frame()
-# convert 5 minutes labeled rates to theoretical decay rates, with the equation Y(t) = α / β * (1 - e^(-t*β))
+                  "r" = tx_label_rate$Labeled_rate[match(same_genes, tx_label_rate$gene_id)],
+                  "half_life_TimeLapse" = TimeLapse.table[same_genes, "mean_half_life"]) %>%
+            as.data.frame()
+# convert 5 minutes labeled rates to theoretical decay rates, with the equation Y(t) = α / β * (1 - e^(-β*t))
 fit_data$r <- log(1 - fit_data$r) / (-5) 
-fit_data <- fit_data[!apply(fit_data, 1, function(x) any(is.na(x))), ] # 4993 genes
+fit_data <- fit_data[!is.na(rownames(fit_data)) & !is.na(fit_data$k) & !is.na(fit_data$r), ] # 5020 genes
 
 saveRDS(fit_data, "data/fractionation_fit_data.RData")
