@@ -14,10 +14,10 @@ weightTransform <- function( W ) {
 # Sp4      1      0.1
 # Sp5      1        1
 # Sp8      1      0.1
-# Sp9      1     0.01
-# Sp12     1     0.01
-# sum      6     2.22
-norm_factor <- 6 / 2.22 
+# Sp9      1        1
+# Sp12     1      0.1
+# sum      6      3.3
+norm_factor <- 6 / 3.3 
 
 # 2) Transform 0.4 ng spike-in RNA mixture per million cell to molecular number per cell:
 # ( 0.4 * 1e-9 (g) / 322 (nt molecular mass) * 6.02e+23 ) / 1000 (to RPK average length) / 1e+6 (million cells) / norm_factor 
