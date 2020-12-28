@@ -1,32 +1,32 @@
 
-if (!file.exists("data/last.exon.cov.MINUTE_normed_Pol2S5p.SL.2i.RData"))
-{
+# if (!file.exists("data/terWindow.cov.MINUTE_normed_Pol2S5p.SL.2i.RData"))
+# {
+# 
+#   cov.terWindow.list = readBam(bam_files = list.files(path = "/mnt/E0767589767560E8/UPPMAX/PUBLISH/bam",
+#                                                       pattern = "P1.*5p.*ALL.*bam$", full.names = T),
+#                                intervals = terWindow,
+#                                pair_end = T,
+#                                stranded = F,
+#                                flanks = c(2000, 15000),
+#                                new_lens = c(50, 50, 200))
+#   
+#   input_files = list.files(path = "/mnt/E0767589767560E8/UPPMAX/PUBLISH/bam",
+#                            pattern = "P1.*IN_.*ALL.*bam$", full.names = T)
+# 
+#   sf = SizeFactorCal(.countBam(bam_files = input_files, 
+#                                intervals = terWindow))
+#   
+#   # normalize coverages
+#   cov.terWindow.list_normed <- list()
+#   for( i in seq_along(sf) )
+#     cov.terWindow.list_normed <- c(cov.terWindow.list_normed,
+#                                   list(cov.terWindow.list[[i]] / sf[i]))
+#   
+#   saveRDS(cov.terWindow.list_normed, "data/terWindow.cov.MINUTE_normed_Pol2S5p.SL.2i.RData")
+# }
 
-  cov.last.exon.list = readBam(bam_files = list.files(path = "/mnt/E0767589767560E8/UPPMAX/PUBLISH/bam",
-                                                      pattern = "P1.*5p.*ALL.*bam$", full.names = T),
-                               intervals = gene.last.exon.gr,
-                               pair_end = T,
-                               stranded = F,
-                               flanks = c(2000, 15000),
-                               new_lens = c(50, 50, 200))
-  
-  input_files = list.files(path = "/mnt/E0767589767560E8/UPPMAX/PUBLISH/bam",
-                           pattern = "P1.*IN_.*ALL.*bam$", full.names = T)
-
-  sf = SizeFactorCal(.countBam(bam_files = input_files, 
-                               intervals = gene.last.exon.gr))
-  
-  # normalize coverages
-  cov.last.exon.list_normed <- list()
-  for( i in seq_along(sf) )
-    cov.last.exon.list_normed <- c(cov.last.exon.list_normed,
-                                  list(cov.last.exon.list[[i]] / sf[i]))
-  
-  saveRDS(cov.last.exon.list_normed, "data/last.exon.cov.MINUTE_normed_Pol2S5p.SL.2i.RData")
-}
-
-if (F) {
-  # process coverage on termination windows
+if (!file.exists("data/nascent.terWin.cov_norm.RData")) {
+  # process bam coverage on termination windows
   # Pol2S5p
   bam_files = list.files(path = "/mnt/E0767589767560E8/UPPMAX/PUBLISH/bam",
                          pattern = "P1.*5p.*ALL.*bam$", full.names = T)
@@ -57,7 +57,8 @@ if (F) {
     TTseq.terWin.cov_norm[[sample]] <- 
       sapply(seq_along(TTseq.terWin.cov[[sample]][[1]]), 
              function(i) 
-               rowMeans(sapply(seq_along(TTseq.terWin.cov[[sample]]), function(x) TTseq.terWin.cov[[sample]][[x]][i] / size.factor.list[[sample]][x]))
+               rowMeans(sapply(seq_along(TTseq.terWin.cov[[sample]]),
+                               function(x) TTseq.terWin.cov[[sample]][[x]][i] / size.factor.list[[sample]][x]))
       )
   }
   saveRDS(TTseq.terWin.cov_norm, "data/TTseq.terWin.cov_norm.RData")

@@ -1,12 +1,12 @@
 # get last exons of each gene
 
-if (!file.exists("data/gene.last.exon.mm9.gtf"))
+if (!file.exists("data/terWindow.mm9.gff3"))
 {
   # get the last exons
   txdb <- TxDb.Mmusculus.UCSC.mm9.knownGene::TxDb.Mmusculus.UCSC.mm9.knownGene
   seqlevels(txdb) <- paste0("chr", c(1:19, "X", "Y")) 
   
-  # processing refers to G4hunter
+  # processing exons, referring to G4hunter (A Bedrat et al 2016)
   transcripts <- transcripts(txdb)	#55105
   names(transcripts) <- transcripts$tx_name
   transBgen <- transcriptsBy(txdb, by="gene")	#23434 more than gene number!
