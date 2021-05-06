@@ -2,10 +2,9 @@
 
 # -----------------------------------------------------------------------------------------------------
 # This part includes:
-#     1. gene neighborhood positioning, for scRNA co-expression test
-#     2. intergenic TU coverage on gene neighborhood, correlation with paired genes
-#     3. scRNA coefficient of variation with RNA synthesis saturation rho
-#     4. enhancer transcription changes in the pluripotent states
+#     1. TU differential expression by type, orientation, enhancer annotation and chromatin states
+#     2. intergenic TU occurrence in gene neighborhood, correlation with neighbored genes
+#     3. scRNA covariance test of gene neighbor co-expression by positioning
 # -----------------------------------------------------------------------------------------------------
 
 setwd(dirname(rstudioapi::getSourceEditorContext()$path))
