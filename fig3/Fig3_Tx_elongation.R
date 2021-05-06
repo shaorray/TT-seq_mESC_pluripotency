@@ -1,5 +1,5 @@
 #-----------------------------------------------------------------------------------------------------
-# This part estimate transcription elongation dynamics with TTseq and Pol II S5p coverage
+# This part estimates transcription elongation dynamics with TT-seq and Pol II S5p coverage
 # evaluate RNA Pol II pausing in different mouse ES pluripotent states
 #
 # Rui Shao, June 2020
@@ -9,8 +9,8 @@ setwd(dirname(rstudioapi::getSourceEditorContext()$path))
 source("../util/utils.R")
 
 #-----------------------------------------------------------------------------------------------------
-# estimated speed from TT-seq and Pol II S5p
-# Define of parameters:
+# Estimate speeds with TT-seq and Pol II S5p
+# Define parameters:
 #   v_bar: average elongation speed
 #   l: gene length
 #   P_0: number of Pol II starting elongation per unit of time
@@ -21,9 +21,9 @@ source("../util/utils.R")
 #   m: minutes of elongation
 
 # Equations 
-# 1) P_0 ~ S_bar (~ links with a constant between ChIP and TT-seq)
+# 1) P_0 ~ S_bar (~ links with a scaling factor)
 # 2) P_1 = P_0 * l / v_bar
-# 3) local Pol II speed v_i = P0 / d_i, where d_i is local Pol II RPK
+# 3) local Pol II speed v_i = P0 / d_i, where d_i is local Pol II RPK density
 # 4) v_bar = \sum_i^m v_i / m
 # 5) P_bar = P_1 / l = P_0 / v_bar
 
@@ -208,7 +208,7 @@ speed_class_data <- data.frame(
 
 tss_speed_height <- speed_class_data[speed_class_data$position == 21, ]
 
-g <- ggplot(speed_class_data, aes(x = position, y = value, color = sample)) +
+ggplot(speed_class_data, aes(x = position, y = value, color = sample)) +
   geom_rect(aes(xmin = -Inf, xmax = 21, ymin = -Inf, ymax = Inf),
             fill = "grey", alpha = 0.01, linetype = 0) +
   geom_rect(aes(xmin = 220, xmax = Inf, ymin = -Inf, ymax = Inf),
@@ -222,10 +222,6 @@ g <- ggplot(speed_class_data, aes(x = position, y = value, color = sample)) +
   theme_setting +
   theme(axis.text.x = element_text(size=14),
         legend.position = "none")
-g
-# g + geom_point(data = tss_speed_height, 
-#                aes(x = position, y = value),
-#                pch = 4, color = colors_n[c(1,10,6)], size = 5, alpha = 1)
 
 ggsave(filename = "Fig3_Est_speed_class_coverage.png", path = "figs",
        device = "png", width = 3.5, height = 3.5)
@@ -373,7 +369,6 @@ pausing_production_mat <-
 # https://doi.org/10.1093/nar/gkx1225
 # https://genomebiology.biomedcentral.com/articles/10.1186/s13059-016-0984-2
 
-
 g1 <- data.frame(pause_index = pausing_production_mat[, 1], # n = 4492
                  RNA_production = pausing_production_mat[, 4]) %>%
   ggplot(aes(x = RNA_production, y = pause_index)) +
@@ -491,7 +486,6 @@ g4 <- ggplot(gene_body_production_mat, aes(x = Tx_RPK_SL, y = Pol2_SL)) + # n = 
   theme(legend.position = "none")
 
 g5 <- ggplot(gene_body_production_mat, aes(x = Tx_RPK_2i, y = Pol2_2i)) + # n = 5890
-  # geom_hex(bins= 50) +
   geom_point(aes(color = with(gene_body_production_mat, get_dens(Tx_RPK_2i, Pol2_2i)))) + 
   geom_hline(yintercept = median(gene_body_production_mat[, 2]), lty = 2, alpha = 0.5) +
   annotate(geom = "text", x = 2.5, y = 2.8, hjust = "left", vjust = "top",
@@ -520,7 +514,6 @@ g5 <- ggplot(gene_body_production_mat, aes(x = Tx_RPK_2i, y = Pol2_2i)) + # n = 
 
 g6 <- ggplot(gene_body_production_mat, 
              aes(x = Tx_RPK_mTORi, y = Pol2_mTORi)) + # n = 5890
-  # geom_hex(bins= 50) +
   geom_point(aes(color = with(gene_body_production_mat, get_dens(Tx_RPK_mTORi, Pol2_mTORi)))) + 
   geom_hline(yintercept = median(gene_body_production_mat[, 3]), lty = 2, alpha = 0.5) +
   annotate(geom = "text", x = 2.5, y = 2.8, hjust = "left", vjust = "top",
@@ -572,15 +565,16 @@ if (F) {
                         Feature = rep(c("Pausing index", "Pol2S5p GB", "CpG", "TATA", "DHS"), 3))
   R2_data$Sample <- factor(R2_data$Sample, levels = c("SL", "2i", "mTORi"))
   R2_data$Feature <- factor(R2_data$Feature, c("CpG", "TATA", "Pausing index", "DHS", "Pol2S5p GB"))
+  
   ggplot(R2_data, aes(x = Sample, y = R2, fill = Feature)) +
     geom_bar(position="dodge", stat = "identity", width = 0.9) +
-    # coord_flip() +
     xlab("R-squared composition") +
     ylab("RNA synthesis explained") +
     scale_fill_manual(values = colors_9[c(2,8,1,5,4)]) +
     theme_setting +
     theme(legend.text = element_text(size = 11),
           legend.title = element_text(size = 11))
+  
   ggsave(filename = "Fig3_RNA_synthesis_explained.png", path = "figs",
          device = "png", width = 4, height = 3)
 }
@@ -662,7 +656,6 @@ g8 <- ggplot(dat_speed_cmp,
   scale_fill_manual(values = colors_20[rev(c(13, 2, 7))]) +
   theme(legend.position = "none")
   
-
 # plot RNA synthesis ~ estimated synthesis --------------------------------------------------
 
 g10 <- ggplot(dat_speed[complete.cases(dat_speed[, "mu"]), ], 
