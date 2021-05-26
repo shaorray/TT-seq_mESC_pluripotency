@@ -2,7 +2,7 @@
 
 # -----------------------------------------------------------------------------------------------------
 # This part includes:
-#     1. TU differential expression by type, orientation, enhancer annotation and chromatin states
+#     1. TU transcription level correlation by TU positioning
 #     2. intergenic TU occurrence in gene neighborhood, correlation with neighbored genes
 #     3. scRNA covariance test of gene neighbor co-expression by positioning
 # -----------------------------------------------------------------------------------------------------
@@ -23,6 +23,7 @@ gene.gr <-  gene.gr[width(gene.gr) < 2500000]
 mtch <- findOverlaps(TU.DE.mm10.gr, gene.gr)
 TU.DE.mm10.gr$gene_id <- NA
 TU.DE.mm10.gr$gene_id[queryHits(mtch)] <- gene.gr$gene_id[subjectHits(mtch)]
+
 
 # -----------------------------------------------------------------------------------------------------
 if (T) {
