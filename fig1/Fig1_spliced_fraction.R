@@ -83,14 +83,13 @@ median(inf.omit(na.omit((spliced_ratio_mean$mTORi_1d / spliced_ratio_mean$SL))))
 median(inf.omit(na.omit((spliced_ratio_mean$mTORi_2d / spliced_ratio[, "SL_rep3"])))) # 1.100866
 
 inf.omit = function(x) x[is.infinite(x)]
-t.test(inf.omit(na.omit(log2(spliced_ratio_mean$SL / spliced_ratio_mean$`2i_2d`))))
-t.test(inf.omit(na.omit(log2(spliced_ratio_mean$SL / spliced_ratio_mean$mTORi_1d))))
-t.test(inf.omit(na.omit(log2(spliced_ratio[, "SL_rep3"] / spliced_ratio_mean$mTORi_2d))))
+t.test(inf.omit(na.omit( log2(spliced_ratio_mean$SL / spliced_ratio_mean$`2i_2d`)))) # p-value < 2.2e-16
+t.test(inf.omit(na.omit( log2(spliced_ratio_mean$SL / spliced_ratio_mean$mTORi_1d)))) # p-value < 2.2e-16
+t.test(inf.omit(na.omit( log2(spliced_ratio_mean$SL / spliced_ratio_mean$mTORi_2d)))) # p-value < 2.2e-16
 
 MASS::glm.nb(SL ~ `2i_2d`, data = spliced_ratio_mean) %>% summary()
 MASS::glm.nb(SL ~ mTORi_1d, data = spliced_ratio_mean) %>% summary()
 MASS::glm.nb(SL ~ mTORi_2d, data = spliced_ratio_mean) %>% summary()
-
 
 
 # --------------------------------------------------------------------------------------------
@@ -110,7 +109,7 @@ ggplot(cellCounts, aes(x = Samples, y = Spliced * 100, fill = Color)) +
   scale_fill_manual(values = colors_20[c(13, 2, 20, 7)]) +
   labs(fill='Samples') +
   theme_setting +
-  theme(axis.text.x = element_text(size = 8, angle = 45, hjust=1))
+  theme(axis.text.x = element_text(size = 11, angle = 45, hjust=1))
 
 ggsave(filename = "Fig1.Spliced_ratio_sample.pdf", path = "figs", device = "pdf",
        width = 5, height = 4)

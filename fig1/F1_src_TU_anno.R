@@ -336,7 +336,7 @@ TU.DE.mm9 <- get_DE_res(TU.counts.mat.mm9, TU.counts.mm9, .include_SL2i = T)
 saveRDS(TU.DE.mm9, "data/TU.DE.mm9.RData")
 
 # add attributes, direction, enhancer ----------------------------------------------------------------------------
-if (F) {
+if (T) {
   # enhancer in development
   F5_enhancer <- importRanges("../data/F5.mm10.enhancers.bed")
   
