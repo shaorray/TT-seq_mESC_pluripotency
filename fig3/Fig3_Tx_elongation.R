@@ -1,6 +1,6 @@
 #-----------------------------------------------------------------------------------------------------
 # This part estimates transcription elongation dynamics with TT-seq and Pol II S5p coverage
-# evaluate RNA Pol II pausing in different mouse ES pluripotent states
+# evaluates RNA Pol II pausing in different mouse ES pluripotent states
 #
 # Rui Shao, June 2020
 #-----------------------------------------------------------------------------------------------------
@@ -54,7 +54,7 @@ ttseq_data <- data.frame(position = rep(seq_len(n_pos), 3),
                          sample = factor(c(rep("SL", n_pos), rep("2i", n_pos), rep("mTORi", n_pos)),
                                          levels = c("SL", "2i", "mTORi"))
 )
-
+n_pos <- ncol(pol2s5p_sandwich_mat_list[[1]])
 TT_Pol2s5p_data <- data.frame(position = rep(seq_len(n_pos), 3),
                               value = c(colMeans(TT_Pol2s5p_sandwich_mat_list[[1]]),
                                         colMeans(TT_Pol2s5p_sandwich_mat_list[[2]]),
@@ -345,7 +345,7 @@ if (F) {
 
 # plot pause index ~ RNA synthesis --------------------------------------------------
 pausing_index_mat <- readRDS("../fig3/data/pausing_index_SL_2i.RData")
-pausing_index_mat <- pausing_index_mat[order(pausing_index_mat[,1], decreasing = T), ]
+pausing_index_mat <- pausing_index_mat[order(pausing_index_mat[,1], decreasing = T), c(3,1,4)]
 
 # add Tx measurements
 sample_Tx_counts <- readRDS('../figS2/data/sample_Tx_counts_Rates_combined.RData')
@@ -581,7 +581,7 @@ if (F) {
 
 # plot estimated speed ~ measured speed --------------------------------------------------
 elongation_speed_table <- read.table("../fig3/data/elongation_speed_table.txt")
-elongation_speed_table <- elongation_speed_table[elongation_speed_table$time_points > 1, ]
+
 genes.intercect <- intersect.Vector(rownames(elongation_speed_table), 
                                     rownames(gene_body_production_mat))
 dat_speed <- with(gene_body_production_mat[genes.intercect, ],
@@ -599,45 +599,49 @@ dat_speed <- with(gene_body_production_mat[genes.intercect, ],
                              )
                   )
 rownames(dat_speed) <- genes.intercect
+dat_speed <- dat_speed %>% dplyr::filter(speed > -1)
 
-# validate measured speed from Gro-seq flv inhibition with provided table
-genes.intercect2 <- match(paper_est_speed$gene_id, rownames(elongation_speed_table))
 
-dat_speed_cmp2 <- data.frame(speed_paper = paper_est_speed[, "speed"],
-                             speed_measured = elongation_speed_table[genes.intercect2, "speed"],
-                             Estimation_at = paste(paper_est_speed[, "Time"], "min"),
-                             gene_id = paper_est_speed$gene_id) 
-dat_speed_cmp2 <- dat_speed_cmp2[!is.na(dat_speed_cmp2$speed_measured), ]
-dat_speed_cmp2$Estimation_at <- factor(dat_speed_cmp2$Estimation_at)
-
-ggplot(dat_speed_cmp2, aes(x = (speed_paper), y = (speed_measured))) +
-  geom_abline(slope = 1, intercept = 0, color = "grey50") +
-  geom_point(aes(color = Estimation_at), size = 1) + 
-  scale_x_continuous(name="Speed Jonker et al. (kb/min)",
-                     breaks= c(0, 1, 2, 3),
-                     labels= c(0, 1, 2, 3), limits = c(0, 3.5)) +
-  scale_y_continuous(name="Measured speed (kb/min)",
-                     breaks= c(0, 1, 2, 3),
-                     labels= c(0, 1, 2, 3)) +
-  theme_setting 
-ggsave(filename = paste0("FigS4_measured_speed_vs_paper_speed.png"), 
-       path = "../figS4/figs/",
-       device = "png", width = 6, height = 4.5)
+if (T) {
+  # validate measured speed from Gro-seq flv inhibition with provided table
+  genes.intercect2 <- match(paper_est_speed$gene_id, rownames(elongation_speed_table))
+  
+  dat_speed_cmp2 <- data.frame(speed_paper = paper_est_speed[, "speed"],
+                               speed_measured = elongation_speed_table[genes.intercect2, "speed"],
+                               Estimation_at = paste(paper_est_speed[, "Time"], "min"),
+                               gene_id = paper_est_speed$gene_id) 
+  dat_speed_cmp2 <- dat_speed_cmp2[!is.na(dat_speed_cmp2$speed_measured), ]
+  dat_speed_cmp2$Estimation_at <- factor(dat_speed_cmp2$Estimation_at)
+  
+  ggplot(dat_speed_cmp2, aes(x = (speed_paper), y = (speed_measured))) +
+    geom_abline(slope = 1, intercept = 0, color = "grey50") +
+    geom_point(aes(color = Estimation_at), size = 1) + 
+    scale_x_continuous(name="Speed Jonker et al. (kb/min)",
+                       breaks= c(0, 1, 2, 3),
+                       labels= c(0, 1, 2, 3), limits = c(0, 3.5)) +
+    scale_y_continuous(name="Measured speed (kb/min)",
+                       breaks= c(0, 1, 2, 3),
+                       labels= c(0, 1, 2, 3)) +
+    theme_setting 
+  ggsave(filename = paste0("FigS4_measured_speed_vs_paper_speed.png"), 
+         path = "../figS4/figs/",
+         device = "png", width = 6, height = 4.5)
+}
 
 # plot speed, TX and Pol II interplays
 g7 <- ggplot(dat_speed, aes(x = v_hat_SL, y = speed)) +
   geom_point(aes(color = get_dens(v_hat_SL, speed)), 
              size = 0.8) +
   scale_color_viridis(option = "C", direction = -1, alpha = 0.8) +
-  annotate(geom = "text", x = 1.5, y = 0.8, hjust = "left", vjust = "top",
+  annotate(geom = "text", x = 1.3, y = 0.85, hjust = "left", vjust = "top",
            label = paste0(paste("r = ", round(cor(dat_speed$v_hat_SL, dat_speed$speed), 3)),
                           "\nn = ", nrow(dat_speed))) +
-  scale_x_continuous(name="\nEstimated speed (a.u.)\n",
-                     limits = c(0, 2)) +
-  scale_y_continuous(name="\nMeasured speed (kb/min)",
+  scale_x_continuous(name="\nEstimated velocity (a.u.)\n",
+                     limits = c(-0.2, 2)) +
+  scale_y_continuous(name="\nMeasured velocity (kb/min)",
                      breaks=c(-0.7, 0, 0.7),
                      labels=round(10^c(-0.7, 0, 0.7), 1),
-                     limits = c(-0.8, 0.8)) +
+                     limits = c(-1, 0.9)) +
   theme_setting +
   theme(legend.position = "none") 
 
@@ -651,31 +655,65 @@ g8 <- ggplot(dat_speed_cmp,
              aes(x = Speed_hat, y = Sample, fill = Sample)) + 
   ggridges::geom_density_ridges(rel_min_height = 0.01, quantile_lines = TRUE, quantiles = 2, lty = 2) +
   theme_setting +
-  xlab("\nEstimated speed (a.u.)\n") +
+  xlab("\nEstimated velocity (a.u.)\n") +
   ylab("") +
   scale_fill_manual(values = colors_20[rev(c(13, 2, 7))]) +
   theme(legend.position = "none")
   
 # plot RNA synthesis ~ estimated synthesis --------------------------------------------------
+if (F) { # previous version
+  g10 <- ggplot(dat_speed[complete.cases(dat_speed[, "mu"]), ], 
+                aes( x = mu_hat, y = mu)) +
+    geom_point(aes(color = get_dens(mu, mu_hat)), size = 0.8) + 
+    scale_color_viridis(option = "C", direction = -1, alpha = 0.8) +
+    annotate(geom = "text", x = 1.4, y = 0.1, hjust = "left", vjust = "top",
+             label = paste0(paste("r = ", 
+                                  round(single_variance_explained(dat_speed$mu_hat, dat_speed$mu, T), 3),
+                                  "\nn = ", nrow(dat_speed))) ) +
+    xlab("\nEst. RNA synthesis (a.u.)\n") +
+    xlim(c(0, 2)) +
+    scale_y_continuous(name="\nRNA synthesis (copy/min)",
+                       breaks=(-2:0), labels=10^(-2:0), limits = c(-2, 0.1)) +
+    theme_setting +
+    theme(legend.position = "none")
+}
 
-g10 <- ggplot(dat_speed[complete.cases(dat_speed[, "mu"]), ], 
-              aes( x = mu_hat, y = mu)) +
-  geom_point(aes(color = get_dens(mu, mu_hat)), size = 0.8) + 
-  scale_color_viridis(option = "C", direction = -1, alpha = 0.8) +
-  annotate(geom = "text", x = 1.4, y = 0.1, hjust = "left", vjust = "top",
-           label = paste0(paste("r = ", 
-                                round(single_variance_explained(dat_speed$mu_hat, dat_speed$mu, T), 3),
-                          "\nn = ", nrow(dat_speed))) ) +
-  xlab("\nEst. RNA synthesis (a.u.)\n") +
-  xlim(c(0, 2)) +
-  scale_y_continuous(name="\nRNA synthesis (copy/min)",
-                     breaks=(-2:0), labels=10^(-2:0), limits = c(-2, 0.1)) +
-  theme_setting +
-  theme(legend.position = "none")
-
+if (T) {  # mu ~ mu_hat
+  # consider all measured velocity by any number of time points (Flv GRO-seq)
+  # the estimated RNA synthesis still remains a weak correlation with actual RNA synthesis rates 
+  # but RNA synthesis only marginally correlates with the measured velocity by more than 2 time points, which are the genes with longer lengths and better GRO-seq coverages
+  elongation_speed_table <- read.table("../fig3/data/elongation_speed_table.txt")
+  
+  sample_Tx_counts_Rates <- readRDS("../figS2/data/sample_Tx_counts_Rates_combined.RData")
+  sample_Tx_counts_Rates <- sample_Tx_counts_Rates[sample_Tx_counts_Rates$gene_id %in% rownames(gene_body_production_mat) &
+                                                     sample_Tx_counts_Rates$Sample == "SL", ]
+  
+  dat_mu_hat <- data.frame(mu_hat = gene_body_production_mat$Pol2_SL + 
+                             log10(elongation_speed_table[match(rownames(gene_body_production_mat), rownames(elongation_speed_table)), 1]),
+                           mu = sample_Tx_counts_Rates[match(rownames(gene_body_production_mat), sample_Tx_counts_Rates$gene_id), c("Copy", "Labeled_rate")] %>% 
+                             log10() %>% rowSums() %>% "-"(log10(5))
+  ) %>% dplyr::filter(complete.cases(.) & is.finite(rowSums(.))) %>% 
+    dplyr::filter(mu_hat > 0.2 & mu_hat < 2 & mu < 2 )
+  
+  g10 <- ggplot(dat_mu_hat, aes(x = mu_hat, y = mu, color = get_dens(mu_hat, mu))) +
+    geom_point() +
+    annotate(geom = "text", x = Inf, y = Inf, hjust = 1, vjust = 1.2,
+             label = paste0(paste("r = ", 
+                                  with(dat_mu_hat, 
+                                       single_variance_explained(mu, mu_hat, T)) %>% round(3),
+                                  "\nn = ", nrow(dat_mu_hat))) ) +
+    scale_color_viridis(option = "C", direction = -1, alpha = 0.8) +
+    scale_y_continuous(name = "\nRNA synthesis (copy/min)",
+                       breaks = c(-2:1), labels = 10^(-2:1), 
+                       limits = c(-2, 0.5)) +
+    scale_x_continuous(name = "\nEst. RNA synthesis (a.u.)\n", 
+                       breaks = c(0:2), labels = 10^(0:2),
+                       limits = c(0, 2.2)) +
+    theme_setting +
+    theme(legend.position = "none")
+}
 
 # plot Pol II ~ speed -------------------------------------------------------
-
 g11 <- ggplot(dat_speed, aes(x = Pol2_den, y = speed)) +
   geom_point(aes(color = get_dens(Pol2_den, speed)), size = 0.8) + 
   scale_color_viridis(option = "C", direction = -1, alpha = 0.8) +
@@ -686,34 +724,74 @@ g11 <- ggplot(dat_speed, aes(x = Pol2_den, y = speed)) +
                      breaks=c(0, 0.5, 1, 1.5, 2),
                      labels=round(10^c(0, 0.5, 1, 1.5, 2), 0),
                      limits = c(0, 2)) +
-  scale_y_continuous(name="\nMeasured speed (kb/min)",
+  scale_y_continuous(name="\nMeasured velocity (kb/min)",
                      breaks=c(-0.7, 0, 0.7),
                      labels=round(10^c(-0.7, 0, 0.7), 1),
-                     limits = c(-0.8, 0.8)) +
+                     limits = c(-1, 0.8)) +
   theme_setting +
   theme(legend.position = "none") 
 
 # plot RNA synthesis ~ measured speed --------------------------------------------------
-g12 <- ggplot(dat_speed[complete.cases(dat_speed[, "mu"]), ], 
-              aes(x = mu, y = speed)) +
-  geom_point(aes(color = get_dens(mu, speed)), size = 0.8) + 
-  scale_color_viridis(option = "C", direction = -1, alpha = 0.8) +
-  annotate(geom = "text", x = -0.5, y = 0.8, hjust = "left", vjust = "top",
-           label = paste0(paste("r = ", 
-                                round(single_variance_explained(dat_speed$speed, dat_speed$mu, T), 3)),
-                          "\nn = ", nrow(dat_speed))) +
-  scale_x_continuous(name="\nRNA synthesis (copy/min)\n",
-                     breaks=(-2:0), labels=10^(-2:0), limits = c(-2, 0.1)) +
-  scale_y_continuous(name="\nMeasured speed (kb/min)",
-                     breaks=c(-0.7, 0, 0.7),
-                     labels=round(10^c(-0.7, 0, 0.7), 1),
-                     limits = c(-0.8, 0.8)) +
-  theme_setting +
-  theme(legend.position = "none") 
+if (T) { # previous version
+  g12 <- ggplot(dat_speed[complete.cases(dat_speed[, "mu"]), ], 
+                aes(x = mu, y = speed)) +
+    geom_point(aes(color = get_dens(mu, speed)), size = 0.8) + 
+    scale_color_viridis(option = "C", direction = -1, alpha = 0.8) +
+    annotate(geom = "text", x = -0.5, y = 0.8, hjust = "left", vjust = "top",
+             label = paste0(paste("r = ", 
+                                  round(single_variance_explained(dat_speed$speed, dat_speed$mu, T), 3)),
+                            "\nn = ", nrow(dat_speed))) +
+    scale_x_continuous(name="\nRNA synthesis (copy/min)\n",
+                       breaks=(-2:0), labels=10^(-2:0), limits = c(-2, 0.1)) +
+    scale_y_continuous(name="\nMeasured velocity (kb/min)",
+                       breaks=c(-0.7, 0, 0.7),
+                       labels=round(10^c(-0.7, 0, 0.7), 1),
+                       limits = c(-0.8, 0.8)) +
+    theme_setting +
+    theme(legend.position = "none") 
+}
 
-ggsave(plot = grid.arrange(g11, g7, g12, g10, g8, ncol = 2),
-       filename = "Fig3_TTseq_Pol2S5p_speed_interplays2.png", path = "figs",
+if (F) { # revision, 2021 Jul 26
+  # velocity ~ RNA copy
+  elongation_speed_table <- read.table("../fig3/data/elongation_speed_table.txt")
+  # elongation_speed_table <- elongation_speed_table[elongation_speed_table$time_points > 1, ]
+  
+  sample_Tx_counts_Rates <- readRDS("../figS2/data/sample_Tx_counts_Rates_combined.RData")
+  sample_Tx_counts_Rates <- sample_Tx_counts_Rates[sample_Tx_counts_Rates$gene_id %in% rownames(elongation_speed_table) &
+                                                     sample_Tx_counts_Rates$Sample == "SL", ]
+  sample_Tx_counts_Rates$Speed <- elongation_speed_table[match(sample_Tx_counts_Rates$gene_id, rownames(elongation_speed_table)), 1]
+  sample_Tx_counts_Rates <- sample_Tx_counts_Rates[sample_Tx_counts_Rates$Copy > 0, ]
+  sample_Tx_counts_Rates <- sample_Tx_counts_Rates[sample_Tx_counts_Rates$Labeled_rate > 0, ]
+  sample_Tx_counts_Rates$Copy <- log10(sample_Tx_counts_Rates$Copy)
+  sample_Tx_counts_Rates$Speed <- log10(sample_Tx_counts_Rates$Speed)
+  sample_Tx_counts_Rates$mu <- sample_Tx_counts_Rates$Copy + log10(sample_Tx_counts_Rates$Labeled_rate) - log10(5)
+  sample_Tx_counts_Rates <- sample_Tx_counts_Rates %>% 
+    dplyr::filter(complete.cases(.)) %>% dplyr::filter(Copy > -3)
+  
+  ggplot(sample_Tx_counts_Rates, aes(x = Speed, y = Copy, color = get_dens(Speed, Copy))) +
+    geom_point() +
+    annotate(geom = "text", x = Inf, y = -Inf, hjust = 1.5, vjust = -1,
+             label = paste0(paste("r = ", 
+                                  with(sample_Tx_counts_Rates, 
+                                       single_variance_explained(Copy, Speed, T)) %>% round(3),
+                                  "\nn = ", nrow(sample_Tx_counts_Rates))) ) +
+    scale_color_viridis(option = "C", direction = -1, alpha = 0.8) +
+    scale_x_continuous(name = "\nMeasured velocity (kb/min)\n",
+                       breaks = c(-0.7, 0, 0.7), labels = c(0.2, 1, 5),
+                       limits = c(-1, 0.7)) +
+    scale_y_continuous(name = "\nTotal mRNA Copy", breaks = c(-1:2), labels = 10^(-1:2)) +
+    theme_setting +
+    theme(legend.position = "none")
+  
+  ggsave(filename = "FigS3_scatter_copy_measured_speed.png",
+         path = "../figS3/figs",
+         device = "png", width = 4, height = 4)
+}
+
+ggsave(plot = cowplot::plot_grid(g11, g7, g12, g10, g8, ncol = 2, align = "v"),
+       filename = "Fig3_TTseq_Pol2S5p_speed_interplays2.png", path = "../fig3/figs",
        device = "png", width = 7, height = 10)
+
 
 # plot speed changes in 2i / mTORi ----------------------------------------------------
 dat_speed_change <- with(gene_body_production_mat,
@@ -771,4 +849,38 @@ g14 <- ggplot(dat_speed_change, aes(x = v_hat, y = log10FC_mTORi, color = densit
 ggsave(plot = grid.arrange(g13, g14, ncol = 2),
        filename = "FigS4_MAplot_speed_change.png", 
        path = "../figS4/figs", device = "png", width = 12, height = 6)
+
+# -------------------------------------------------------------------------------------- #
+# SL2i velocity coverage
+n_pos <- ncol(TT_Pol2s5p_sl2i_sandwich_mat[[1]])
+TT_Pol2s5p_sl2i_data <- data.frame(position = rep(seq_len(n_pos), 2),
+                              value = c(colMeans(TT_Pol2s5p_sl2i_sandwich_mat[[1]]),
+                                        colMeans(TT_Pol2s5p_sl2i_sandwich_mat[[2]])),
+                              sample = factor(c(rep("SL", n_pos), rep("SL2i", n_pos)),
+                                              levels = c("SL", "SL2i"))
+)
+
+ggplot(TT_Pol2s5p_sl2i_data, aes(x = position, y = value, color = sample)) +
+  geom_rect(aes(xmin = -Inf, xmax = 21, ymin = -Inf, ymax = Inf),
+            fill = "grey", alpha = 0.01, linetype = 0) +
+  geom_rect(aes(xmin = 221, xmax = Inf, ymin = -Inf, ymax = Inf),
+            fill = "grey", alpha = 0.01, linetype = 0) +
+  geom_line(size = 1.5) +
+  scale_color_manual(values = colors_20[c(13, 10)]) +
+  xlab("") +
+  ylab("log(Nascent RNA / Pol II-S5p)") +
+  labs(color = "Sample") +
+  scale_x_continuous(breaks = c(21, 221), labels = c("TSS", "TES")) +
+  theme_setting +
+  theme(axis.text.x = element_text(size=14),
+        legend.position = "top")
+
+ggsave(filename = "FigS3_SL_SL2i_TTseq_Pol2S5p_coverage.png", 
+       path = "../figS3/figs", device = "png", width = 3.5, height = 3.5)
+
+# -------------------------------------------------------------------------------------- #
+
+
+
+
 
