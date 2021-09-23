@@ -50,6 +50,7 @@ if (!file.exists("data/nascent.terWin.cov_norm.RData")) {
   size.factor.list = list("LRNA_SL" = L_sf[grep("SL_", names(L_sf))],
                           "LRNA_2i" = L_sf[grep("^2i_2", names(L_sf))],
                           "LRNA_mTORi" = L_sf[grep("mTORi_2", names(L_sf))])
+  
   # normalize with size factors, and combine replicates
   TTseq.terWin.cov_norm <- vector(mode = "list", length = length(TTseq.terWin.cov))
   names(TTseq.terWin.cov_norm) <- names(TTseq.terWin.cov)
@@ -128,3 +129,18 @@ if (!file.exists("data/nascent.terWin.cov_norm.RData")) {
   saveRDS(pol2.terWin.cov_norm, "data/pol2.terWin.cov_norm.RData")
 }
 
+# add SL2i TT-seq coverage, Sep 10 2021
+if (F) {
+  TTseq.SL2i.terWin.cov <- .coverBam(bam_files = list.files("/mnt/0E471D453D8EE463/TT_seq_data/bam_sl_2i_mm9",
+                                                           pattern = "LRNA.*(SL2i_).*bam$", full.names = T), 
+                                    intervals = terWindow,
+                                    paired.end = "extend")
+  
+  L_RNA_SL2i_sf <- readRDS("../data/LRNA.sizefactor.RC.RData")[c("SL2i_2d_rep1",  "SL2i_2d_rep2")]
+  
+  TTseq.SL2i.terWin.cov2 <- sapply(seq_along(TTseq.SL2i.terWin.cov[[1]]), 
+                                  function(i) 
+                                    rowMeans(sapply(seq_along(TTseq.SL2i.terWin.cov),
+                                                    function(x) TTseq.SL2i.terWin.cov[[x]][i] / L_RNA_SL2i_sf[x]))
+  )
+}

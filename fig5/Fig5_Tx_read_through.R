@@ -185,7 +185,6 @@ g5 <- ggplot(elongation_table,
                  y = read_through_SL / 1000,
                  color = get_dens(log10(speed), read_through_SL / 1000))) +
   geom_point(size = 0.7) +
-  # geom_density2d(color = "black", size = 0.4, bins = 10) +
   scale_color_gradientn(colours = rev(colors_n)) +
   scale_x_log10() +
   coord_cartesian(xlim=c(0.1, 7)) +
@@ -224,9 +223,7 @@ g6 <- ggplot(est_elongation_table,
                  y = read_through_SL / 1000,
                  color = get_dens(log10_est_speed, read_through_SL / 1000))) +
   geom_point(size = 0.7) +
-  # geom_density2d(color = "black", size = 0.4, bins = 10) +
   scale_color_gradientn(colours = rev(colors_n)) +
-  # scale_x_log10() +
   annotate(geom = "text", 
            x = 1.5, y = 13,
            hjust = "left", vjust = "top",
@@ -288,13 +285,13 @@ ggplot(mat, aes(x = Position, y = TTseq_coverage + 0.11, fill = Elongation_speed
   facet_grid(rows = vars(Elongation_speed)) +
   scale_fill_manual(values = c_col) +
   xlab("Termination window (Kb)") +
-  ylab("Nascent RNA coverage") +
+  ylab("Labeled RNA coverage SL") +
   scale_y_continuous(breaks = c(0.15, 1.15), labels = c("0.0", "1.0"),
                      limits = c(0, 1.15), expand = c(0,0)) +
   theme_setting +
   theme(axis.text=element_text(size=10, face = "plain"),
         axis.title=element_text(size=14,face="bold"),
-        strip.text.y = element_text(size = 10, face="bold"),
+        strip.text.y = element_text(size = 11, face="bold"),
         legend.position = "none",
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
@@ -304,6 +301,21 @@ ggplot(mat, aes(x = Position, y = TTseq_coverage + 0.11, fill = Elongation_speed
 
 ggsave(filename = "Fig5_Elongation_speed_class_read_thru_LRNA.png", device = "png",
        width = 3.5, height = 5, path = "../fig5/figs/")
+
+
+ggplot(elongation_table, aes(x = Speed_cls, y = read_through_SL / 1000, fill = Speed_cls)) +
+  geom_boxplot(notch = T, outlier.size = 0) +
+  scale_fill_manual(values = c_col) +
+  stat_compare_means(method = "anova", label.y = 14.8) + # global p-value
+  stat_compare_means(label = "p.signif", method = "t.test",
+                     ref.group = "Very slow", label.y = 14) +
+  ylim(c(0, 15)) +
+  xlab("") + ylab("Read through distance SL (kb)") +
+  theme_setting +
+  theme(legend.position = "none")
+
+ggsave(filename = "Fig5_boxplot_elongation_speed_class_read_thru_LRNA.png", device = "png",
+       width = 5, height = 3.2, path = "../fig5/figs/")
 
 # termination window speed coverage heatmap -----------------------------------------------
 speed_cov_SL = speed_cov_2i = speed_cov_mTORi = NULL
@@ -390,14 +402,14 @@ ggplot(dat_speed_cmp, aes(x = pos, y = speed, color = sample)) +
   scale_x_continuous(name = "Termination window (kb)",
                      breaks = c(0, 50, 100, 150), labels = c(0, 5, 10, 15)) +
   scale_color_manual(values = colors_20[c(13, 2, 7)]) +
-  ylab("Est. median speed (a.u.)") +
+  ylab("Est. median velocity (a.u.)") +
   annotate(geom = "text", 
            x = 120, y = 5,
            hjust = "left", vjust = "top", label = "n = 10477") +
   theme_setting
 
 ggsave(filename = "Fig5_Termination_window_sample_speed_coverage.png", device = "png",
-       width = 5, height = 4, path = "../fig5/figs")
+       width = 5, height = 3.2, path = "../fig5/figs")
 
 if (T) {
   # read through indexing SL ~ 2i & SL ~ mTORi ------------------------------------------------------
@@ -755,7 +767,7 @@ dat_test <- data.frame("Read through length" = read_thru_table[genes.intercect, 
                        "G.B. GC%" = gene.list[genes.intercect, ]$percentage_gene_gc_content,
                        "R.T. GC%" = read_thru_GC[genes.intercect] * 100,
                        "Est. G.B. speed" = estimated_speed[genes.intercect, 1], # log10 scale
-                       "Est. R.T. speed" = log1p(read_thru_speed_SL[genes.intercect]) )
+                       "Est. R.T. speed" = log10(read_thru_speed_SL[genes.intercect] + 1) )
 rownames(dat_test) <- genes.intercect
 dat_test <- dat_test[complete.cases(dat_test) & dat_test[, 1] < 15000 &
                        !is.infinite(dat_test$Synthesis.rate) & !is.infinite(dat_test$Est..G.B..speed), ]
@@ -860,7 +872,7 @@ dat_test <- cbind(dat_test,
                   mat_ter_CpG[gene.idx, 4],
                   mat_ter_histone[gene.idx, ])
 
-colnames(dat_test)[c(5:18, 25:27)] <- c("GB_GC", "RT_GC", "Est.GB_speed", "Est.RT_speed",
+colnames(dat_test)[c(5:18, 25:27)] <- c("GB_GC", "RT_GC", "Est.GB_velocity", "Est.RT_velocity",
                                         "Smarca4", "Chd1", "Chd2", "Chd4", "Chd6", "Chd8", 
                                         "Chd9", "ATAC", "Control", "MNase",
                                         "m6A", "KAS", "RT_DNAme")
@@ -878,7 +890,8 @@ dat_test_linear <- dat_test_linear[, c("Read.through.length", "GB_GC", "RT_GC",
                                        "Chd4", "Chd6", "Chd1", "Chd8",
                                        "H3.3", "H2AUb", "H3K79me2", "H2AZ", 
                                        "H3K27me3", "RT_DNAme", "LaminB", 
-                                       "H3K36me3", "Gene.length", "Est.GB_speed", "Est.RT_speed")]
+                                       "H3K36me3", "Gene.length", 
+                                       "Est.GB_velocity", "Est.RT_velocity")]
 
 dat_test_linear$RT_class <- cut(dat_test_linear$Read.through.length,
                          breaks = c(0, 3000, 5000, 7500, 15000), 
@@ -937,8 +950,8 @@ ggplot(dat_variance_explained, aes(x = Feature, y = Value, fill = Feature)) +
         legend.key.size = unit(0.4, "cm"),
         legend.title = element_text(size = 12))
 
-ggsave(filename = "FigS5_Read_through_distance_feature_explained.png",
-       path = "../figS5/figs", device = "png", width = 5, height = 5) 
+ggsave(filename = "Fig5_Read_through_distance_feature_explained.png",
+       path = "../fig5/figs", device = "png", width = 5, height = 5) 
 
 # non-linear explanation of read through distance ------------------------------------------------------------------
 dat_test_gbm <- dat_test[dat_test$Read.through.length > 100,
@@ -1033,3 +1046,111 @@ ggsave(plot = grid.arrange(g2.1, g2.2, g2.3, g2.4, g2.5, nrow = 1),
        filename = paste0("FigS5_terSite_coverages.png"), 
        path = "../figS5/figs/",
        device = "png", width = 20, height = 4)
+
+# ---------------------------------------------------------------------------------- #
+# revision #3_4
+dat_markers2 <- dat_markers[dat_markers$gene_id %in% rownames(read_thru_table), ]
+dat_markers2$Read_through <- dat_markers2$Speed <- NA
+for (i in c("SL", "2i", "mTORi")) {
+  idx <- grep(i, dat_markers2$Sample) 
+  dat_markers2[idx, "Read_through"] <- 
+    read_thru_table[match(dat_markers2$gene_id[idx],  rownames(read_thru_table)), paste0("LRNA_", i)]
+  dat_markers2[idx, "Speed"] <- 
+    mRNA.speed[match(dat_markers2$gene_id[idx],  rownames(mRNA.speed)), i]
+}
+dat_markers2$Sample <- factor(gsub("_.*", "", dat_markers2$Sample), levels = c("SL", "2i", "mTORi"))
+
+library(ggpubr)
+g1 <- ggplot(dat_markers2, aes(x = Type, y = Read_through / 1e3, fill = Type)) +
+  geom_boxplot(position = position_dodge(), width = 0.7) +
+  geom_jitter() + 
+  stat_compare_means(method = "anova", label.y = 14.8) + # global p-value
+  stat_compare_means(label = "p.signif", method = "t.test",
+                     ref.group = 'General pluripotency', label.y = 14) +
+  xlab("\nPluripotency gene type") + ylab("Read through distance (kb)") + 
+  theme_setting +
+  theme(axis.text.x = element_blank(), 
+        legend.position = 'none')
+
+
+g2 <- ggplot(dat_markers2, aes(x = Type, y = Speed, fill = Type)) +
+  geom_boxplot(position = position_dodge(), width = 0.7) +
+  geom_jitter() + 
+  stat_compare_means(method = "anova", label.y = 3) + 
+  stat_compare_means(label = "p.signif", method = "t.test",
+                     ref.group = 'General pluripotency', label.y = 2) +
+  xlab("\nPluripotency gene type") + 
+  scale_y_continuous(name = "Est. velocity (kb/min)",
+                     breaks=c(-0.7, 0, 0.7),
+                     labels=round(10^c(-0.7, 0, 0.7), 1)) +
+  theme_setting +
+  theme(axis.text.x = element_blank(), 
+        legend.position = 'none')
+
+
+g3 <- ggplot(dat_markers2, aes(x = Read_through / 1e3, y = Speed, color = Type)) +
+  geom_point() + 
+  annotate("text", x = Inf, y = Inf,
+           hjust = 1.2, vjust = 1.2, 
+           label = paste0("   r = ", round(cor(dat_markers2$Read_through, dat_markers2$Speed), 3),
+                          "\nn = 45")) +
+  xlab("Read through distance (kb)") + 
+  scale_y_continuous(name = "Est. velocity (kb/min)",
+                     breaks=c(-0.7, 0, 0.7),
+                     labels=round(10^c(-0.7, 0, 0.7), 1)) +
+  theme_setting
+
+ggsave(plot = grid.arrange(g1, g2, g3, nrow = 1, widths = c(2,2,3.1)),
+       filename = "FigS5_est_elongation_speed_time_correlation.png",
+       path = "../figS5/figs",
+       device = "png", width = 14, height = 4)
+
+g1 <- ggplot(dat_markers2[dat_markers2$gene_symbol %in% 
+                      c("Pou5f1", "Sox2", "Nanog", "Klf4",
+                        "Tbx3", "Myc", "Mycn", "Zic2", "Tead4", "Kit"), ], 
+       aes(x = gene_symbol, y = Speed + 1, fill = Sample)) +
+  geom_bar(position = "dodge", stat = "identity", width = 0.6) +
+  scale_fill_manual(values = colors_20[c(13, 2, 7)]) +
+  xlab("") + ylab("Est. Velocity (a.u.)") +
+  ggpubr::theme_pubr() + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+g2 <- ggplot(dat_markers2[dat_markers2$gene_symbol %in% 
+                      c("Pou5f1", "Sox2", "Nanog", "Klf4",
+                        "Tbx3", "Myc", "Mycn", "Zic2", "Tead4", "Kit"), ], 
+       aes(x = gene_symbol, y = Read_through / 1e3, fill = Sample)) +
+  geom_bar(position = "dodge", stat = "identity", width = 0.6) +
+  scale_fill_manual(values = colors_20[c(13, 2, 7)]) +
+  xlab("") + ylab("Read_through (kb)") +
+  ggpubr::theme_pubr() + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+
+ggsave(plot = grid.arrange(g1, g2, nrow = 1),
+       filename = "FigS5_est_elongation_speed_read_through_selected_pluripotent_genes.png",
+       path = "../figS5/figs",
+       device = "png", width = 10, height = 4)
+
+# ------------------------------------------------------------------------- #
+# SL2i read-through distance
+if (F) {
+  TTseq.SL2i.ter.sites <- unlist(sapply(TTseq.SL2i.terWin.cov2, get_ter_site))
+  
+  data.frame(x = (read_thru_table$LRNA_SL + TTseq.SL2i.ter.sites ) / 2e3,
+             y = (TTseq.SL2i.ter.sites - read_thru_table$LRNA_SL) / 1e3
+  ) %>%
+    ggplot(aes(x = x, y = y)) +
+    geom_hex(bins=45) +
+    theme_setting +
+    scale_fill_viridis(option = "A", direction = -1) +
+    scale_x_continuous(name="Mean read through (kb)") +
+    scale_y_continuous(name="SL2i Δread through (kb)") +
+    theme(axis.title=element_text(size=16, face="bold"),
+          legend.position = "none",
+          panel.border = element_blank())
+  
+  ggsave(filename = "FigS5_terWindow_SL_SL2i_mTORi.png", 
+         path = "../figS5/figs", device = "png", width = 3.5, height = 3.5)
+}
+
+
+
