@@ -258,6 +258,7 @@ Pol3_idx <- sapply(list.files("../data/MACS2_peaks", "BRF1|TFIII", full.names = 
 Pol_mat$Pol3_cofactors[Pol3_idx] <- "True"
 
 
+
 # barplots ----------------------------------------------------------------------------------------------
 library(ggplot2)
 library(gridExtra)
@@ -550,9 +551,6 @@ abline(0, 2)
 points(dat_stranded[idx_Trp & TU.DE.mm9.gr$location == "protein_coding", c(2, 3)])
 
 
-
-
-
 g2.3 <- ggplot(data.frame(value = table(TU_intergenic$STARR_class)),
                aes(x="", y=value.Freq, fill=value.Var1)) +
   geom_bar(stat="identity", width=1) +
@@ -565,3 +563,210 @@ g2.3 <- ggplot(data.frame(value = table(TU_intergenic$STARR_class)),
         axis.text.y = element_text(size = 0),
         axis.text.x = element_text(size = 0),
         axis.title = element_text(size = 0))
+
+# -------------------------------------------------------------------------------- #
+# correlation between replicates
+# mRNA
+txRPK <- readRDS("../data/txRPK_SL_2i.RData")
+txRPK_log2_mRNA <- txRPK[names(gene.gr), grep("LRNA_", colnames(txRPK))] %>%
+  log10() %>% as.data.frame()
+
+plot_scatter <- function(dat, .xlab, .ylab, xlim = NULL, ylim = NULL) {
+  dat <- dat[complete.cases(dat) & is.finite(rowSums(dat)) & !is.na(rowSums(dat)), ]
+  r <- cor(dat[, 1], dat[, 2], method = "spearman") %>% round(3)
+  ggplot(dat, aes(x = x, y = y, color = get_dens(x, y))) +
+    geom_point(cex = 0.5) +
+    annotate("text", x = -Inf, y = Inf,
+             hjust = -0.5, vjust = 1.2, 
+             label = paste0(" r = ", r, "\nn = ", nrow(dat))) +
+    scale_x_continuous(name = .xlab, limits = xlim) +
+    scale_y_continuous(name = .ylab, limits = ylim) +
+    scale_color_viridis_c(option = "A", direction = -1, begin = 0.1, end = 0.9) +
+    theme_setting +
+    theme(legend.position = "none")
+}
+
+g1 <- txRPK_log2_mRNA[, c("LRNA_SL_rep1", "LRNA_SL_rep2")] %>%
+  trim_quantile() %>%
+  data.frame() %>% 
+  `colnames<-`(c("x", "y")) %>%
+  plot_scatter(.xlab = "LRNA_SL_rep1", 
+               .ylab = "LRNA_SL_rep2", 
+               xlim = c(-2, 2.5), ylim = c(-2, 2.5)) + 
+  ggtitle("mRNA RPK")
+
+g2 <- txRPK_log2_mRNA[, c("LRNA_2i_2d_rep1", "LRNA_2i_2d_rep2")] %>%
+  trim_quantile() %>%
+  data.frame() %>% 
+  `colnames<-`(c("x", "y")) %>%
+  plot_scatter(.xlab = "LRNA_2i_2d_rep1", 
+               .ylab = "LRNA_2i_2d_rep2", 
+               xlim = c(-2, 2.5), ylim = c(-2, 2.5)) + 
+  ggtitle("mRNA RPK")
+
+g3 <- txRPK_log2_mRNA[, c("LRNA_2i_2d_rep1", "LRNA_2i_7d_rep1")] %>%
+  trim_quantile() %>%
+  data.frame() %>% 
+  `colnames<-`(c("x", "y")) %>%
+  plot_scatter(.xlab = "LRNA_2i_2d_rep1", 
+               .ylab = "LRNA_2i_7d_rep1", 
+               xlim = c(-2, 2.5), ylim = c(-2, 2.5)) + 
+  ggtitle("mRNA RPK")
+
+g4 <- txRPK_log2_mRNA[, c("LRNA_mTORi_1d_rep2", "LRNA_mTORi_1d_rep1")] %>%
+  trim_quantile() %>%
+  data.frame() %>% 
+  `colnames<-`(c("x", "y")) %>%
+  plot_scatter(.xlab = "LRNA_mTORi_1d_rep1", 
+               .ylab = "LRNA_mTORi_1d_rep2", 
+               xlim = c(-2, 2.5), ylim = c(-2, 2.5)) + 
+  ggtitle("mRNA RPK")
+
+g5 <- txRPK_log2_mRNA[, c("LRNA_mTORi_2d_rep1", "LRNA_mTORi_2d_rep2")] %>%
+  trim_quantile() %>%
+  data.frame() %>% 
+  `colnames<-`(c("x", "y")) %>%
+  plot_scatter(.xlab = "LRNA_mTORi_2d_rep1", 
+               .ylab = "LRNA_mTORi_2d_rep2", 
+               xlim = c(-2, 2.5), ylim = c(-2, 2.5)) + 
+  ggtitle("mRNA RPK")
+
+ggsave(plot = grid.arrange(g1, g2, g3, g4, g5, nrow = 1),
+       filename = "FigS1_scatter_mRNA_RPK_correlation.png",
+       device = "png", path = "../figS1/figs", width = 20, height = 4)
+
+# ncRNA
+tuRPK <- readRDS("../data/tuRPK_SL_2i.RData")
+g1 <- tuRPK[, c("LRNA_SL_rep1", "LRNA_SL_rep2")] %>% log10() %>%
+  trim_quantile() %>%
+  data.frame() %>% 
+  `colnames<-`(c("x", "y")) %>%
+  plot_scatter(.xlab = "LRNA_SL_rep1", 
+               .ylab = "LRNA_SL_rep2", 
+               xlim = c(-2, 3), ylim = c(-2, 3)) + 
+  ggtitle("ncRNA RPK")
+
+g2 <- tuRPK[, c("LRNA_2i_2d_rep1", "LRNA_2i_2d_rep2")] %>% log10() %>%
+  trim_quantile() %>%
+  data.frame() %>% 
+  `colnames<-`(c("x", "y")) %>%
+  plot_scatter(.xlab = "LRNA_2i_2d_rep1", 
+               .ylab = "LRNA_2i_2d_rep2", 
+               xlim = c(-2, 3), ylim = c(-2, 3)) + 
+  ggtitle("ncRNA RPK")
+
+g3 <- tuRPK[, c("LRNA_2i_2d_rep1", "LRNA_2i_7d_rep1")] %>% log10() %>%
+  trim_quantile() %>%
+  data.frame() %>% 
+  `colnames<-`(c("x", "y")) %>%
+  plot_scatter(.xlab = "LRNA_2i_2d_rep1", 
+               .ylab = "LRNA_2i_7d_rep1", 
+               xlim = c(-2, 3), ylim = c(-2, 3)) +
+  ggtitle("ncRNA RPK")
+
+g4 <- tuRPK[, c("LRNA_mTORi_1d_rep2", "LRNA_mTORi_1d_rep1")] %>% log10() %>%
+  trim_quantile() %>%
+  data.frame() %>% 
+  `colnames<-`(c("x", "y")) %>%
+  plot_scatter(.xlab = "LRNA_mTORi_1d_rep1", 
+               .ylab = "LRNA_mTORi_1d_rep2", 
+               xlim = c(-2, 3), ylim = c(-2, 3)) + 
+  ggtitle("ncRNA RPK")
+
+g5 <- tuRPK[, c("LRNA_mTORi_2d_rep1", "LRNA_mTORi_2d_rep2")] %>% log10() %>%
+  trim_quantile() %>%
+  data.frame() %>% 
+  `colnames<-`(c("x", "y")) %>%
+  plot_scatter(.xlab = "LRNA_mTORi_2d_rep1", 
+               .ylab = "LRNA_mTORi_2d_rep2", 
+               xlim = c(-2, 3), ylim = c(-2, 3)) + 
+  ggtitle("ncRNA RPK")
+
+ggsave(plot = grid.arrange(g1, g2, g3, g4, g5, nrow = 1),
+       filename = "FigS1_scatter_ncRNA_RPK_correlation.png",
+       device = "png", path = "../figS1/figs", width = 20, height = 4)
+
+# -------------------------------- read Pol I/II/III coverage ---------------------------------------- #
+# revision
+# TU.DE.intergenic (mm10) from "F1_src_TU_anno.R"
+
+TU_intergenic_Pol1 <- convertCoverage(file_names = list.files("/mnt/0E471D453D8EE463/GEO_bw/TX/mm10", 
+                                                              pattern = "Pol1", full.names = T), 
+                                      intervals = promoters(TU.DE.intergenic, upstream = 3000, downstream = 3000), 
+                                      bin_width = 50) %>% apply(2, rowMeans)
+
+TU_intergenic_Pol2 <- convertCoverage(file_names = list.files("/mnt/0E471D453D8EE463/GEO_bw/TX/mm10", 
+                                                              pattern = "GFP_Pol2", full.names = T), 
+                                      intervals = promoters(TU.DE.intergenic, upstream = 3000, downstream = 3000), 
+                                      bin_width = 50) %>% apply(2, rowMeans)
+
+TU_intergenic_Pol3 <- convertCoverage(file_names = list.files("/mnt/0E471D453D8EE463/GEO_bw/TX/mm10", 
+                                                              pattern = "Pol3", full.names = T), 
+                                      intervals = promoters(TU.DE.intergenic, upstream = 3000, downstream = 3000), 
+                                      bin_width = 50) %>% apply(2, rowMeans)
+plot_pol_cov <- function(TU_Pol) {
+  dat_cov <- NULL
+  for (i in unique(TU.DE.intergenic$enhancer_direction)) {
+    idx <- TU.DE.intergenic$enhancer_direction == i
+    dat_cov <- rbind(dat_cov, 
+                     data.frame(Cov = TU_Pol[idx, ] %>% log1p() %>% colMeans(),
+                                Pos = 1:120,
+                                Type = i))
+  }
+  dat_cov$Type <- factor(dat_cov$Type, levels = c("Unidirectional_TX",
+                                                  "Unidirectional_Enhancer",
+                                                  "Bidirectional_TX",
+                                                  "Bidirectional_Enhancer"))
+  ggplot(dat_cov, aes(x = Pos, y = Cov, group = Type, color = Type)) +
+    geom_line(size = 1) +
+    scale_x_continuous(name = "", 
+                       breaks = c(1, 61, 120), 
+                       labels = c("-3kb", "TSS", "+3kb")) +
+    ylab("Log Mean Coverage") +
+    scale_color_brewer(palette = "Set1") +
+    theme_setting
+}
+
+g1 <- plot_pol_cov(TU_intergenic_Pol1) + ggtitle("Pol I") + theme(legend.position = "none")
+g2 <- plot_pol_cov(TU_intergenic_Pol2) + ggtitle("Pol II") + theme(legend.position = "none")
+g3 <- plot_pol_cov(TU_intergenic_Pol3) + ggtitle("Pol III")
+
+ggsave(plot = grid.arrange(g1, g2, g3, nrow = 1, widths = c(3,3,5.4)),
+       filename = "FigS1_Pol123_intergenic_TU_coverage.png",
+       path = "../figS1/figs", device = "png", width = 12, height = 4)
+
+# density
+TU.DE.intergenic$Pol1 <- .countBW(list.files("/mnt/0E471D453D8EE463/GEO_bw/TX/mm10", 
+                                          pattern = "Pol1", full.names = T), 
+                                  TU.DE.intergenic + 100, fast = F) %>% rowMeans() %>% unlist() %>% unname()
+TU.DE.intergenic$Pol2 <- .countBW(list.files("/mnt/0E471D453D8EE463/GEO_bw/TX/mm10", 
+                                          pattern = "GFP_Pol2", full.names = T), 
+                               TU.DE.intergenic + 100, fast = F) %>% rowMeans() %>% unlist() %>% unname()
+TU.DE.intergenic$Pol3 <- .countBW(list.files("/mnt/0E471D453D8EE463/GEO_bw/TX/mm10", 
+                                          pattern = "Pol3", full.names = T), 
+                               TU.DE.intergenic + 100, fast = F) %>% rowMeans() %>% unlist() %>% unname()
+
+plot_pol_box <- function(var) {
+  data.frame(Type = TU.DE.intergenic$enhancer_direction,
+             Den = var) %>%
+    dplyr::mutate(Type = factor(Type, levels = c("Unidirectional_TX",
+                                                 "Unidirectional_Enhancer",
+                                                 "Bidirectional_TX",
+                                                 "Bidirectional_Enhancer"))) %>%
+    ggplot(aes(x = Type, y = log1p(Den * 20), fill = Type)) +
+    geom_boxplot(outlier.size = 0, notch = T) +
+    ggpubr::stat_compare_means(ref.group = "Bidirectional_TX", label = "p.signif") +
+    ylab("log RPK") + xlab("") +
+    scale_fill_brewer(palette = "Set1") +
+    theme_setting + 
+    theme(legend.position = "none",
+          axis.text.x = element_blank())
+}
+
+g4 <- plot_pol_box(TU.DE.intergenic$Pol1) + ggtitle("Pol I")
+g5 <- plot_pol_box(TU.DE.intergenic$Pol2) + ggtitle("Pol II")
+g6 <- plot_pol_box(TU.DE.intergenic$Pol3) + ggtitle("Pol III")
+
+ggsave(plot = grid.arrange(g4, g5, g6, nrow = 1),
+       filename = "FigS1_Pol123_intergenic_TU_density_boxplot.png",
+       path = "../figS1/figs", device = "png", width = 10, height = 4)
