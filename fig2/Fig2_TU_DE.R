@@ -17,7 +17,7 @@ TU.DE.mm9.gr$location[TU.DE.mm9.gr$location == "protein_coding"] <- "mRNA"
 TU.DE.mm9.gr$location[TU.DE.mm9.gr$location == "antisense"] <- "asRNA"
 
 bi_other.idx <- findOverlaps(TU.DE.mm9.gr[TU.DE.mm9.gr$location == "intergenic"],
-                             bi_intergenic.other.mm9.gr) %>% queryHits()
+                             bi_intergenic.other.mm9.gr) %>% queryHits() # bi_intergenic.other.mm9.gr from "F1_src_TU_anno.R"
 
 g_list <- list()
 for (i in c("mRNA", "intergenic", "uaRNA", "asRNA")) {
@@ -398,3 +398,55 @@ ggplot(dat, aes(x = Methylation, y = Values, color = Type, group = Type)) +
 ggsave(filename = "figs/Fig2_TU_methylation_tx.png",
        width = 3.5, height = 6, device = "png")
 
+# ---------------------------------------------------------------------------------- #
+# variance of FRNA log2FC explained by LRNA log2FC
+TU.DE.mm9.log2FC <- data.frame(location = TU.DE.mm9.gr$location,
+                               LRNA_lfc_2i = TU.DE.mm9.gr$log2FoldChange_LRNA_2i,
+                               FRNA_lfc_2i = TU.DE.mm9.gr$log2FoldChange_FRNA_2i,
+                               LRNA_lfc_mTORi = TU.DE.mm9.gr$log2FoldChange_LRNA_mTORi,
+                               FRNA_lfc_mTORi = TU.DE.mm9.gr$log2FoldChange_FRNA_mTORi) %>%
+  dplyr::filter(complete.cases(.))
+
+dat_F_L <- NULL
+for (type in c("mRNA", "intergenic", "uaRNA", "conRNA", "asRNA", "daRNA")) {
+  tmp <- TU.DE.mm9.log2FC[TU.DE.mm9.log2FC$location == type, ]
+  tmp[, 2:5] <- trim_quantile(tmp[, 2:5], 0.95)
+  dat_F_L <- rbind(dat_F_L,
+                   data.frame(Sample = c("2i 2d", "mTORi 1d"),
+                              Type = type,
+                              Cor = c(cor(tmp[, 2], tmp[, 3]),
+                                      cor(tmp[, 4], tmp[, 5]))
+                   ))
+}
+dat_F_L$Type <- factor(dat_F_L$Type, levels = c("mRNA", "intergenic", "asRNA", "conRNA", "uaRNA", "daRNA"))
+
+ggplot(dat_F_L, aes(x = Type, y = Cor, fill = Sample)) +
+  geom_bar(stat = "identity", position = position_dodge(), width = 0.8) +
+  ylab("log2FC correlation total RNA ~ labeled RNA") + xlab("") +
+  theme_setting +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggsave(filename = "../figS2/figs/FigS2_log2FC_correlation_FRNA_LRNA.png",
+       width = 6, height = 5, device = "png")
+
+# mTORi Bulut et al. RNA-seq comparison
+Tx_mm9_Bulut <- list.files('/mnt/0E471D453D8EE463/GEO_SL_2i_RNA/output', full.names = T) %>% paste0("/abundance.tsv") %>% 
+  SummarizedExperiment::readKallisto(as = 'matrix', what = "est_counts")  %>% 
+  as.data.frame() %>%
+  dplyr::filter(grepl("^ENS", rownames(.))) %>%
+  as.matrix() %>%
+  keepOneTx(rowname_gene_id = T, is_gene_sum = T) 
+
+log2FC_mm9_Bulut <- Tx_mm9_Bulut[, 2:1] %>% log2() %>% rowDiffs() %>% `rownames<-`(., rownames(Tx_mm9_Bulut))
+
+# res_FRNA_mTORi is from "F1_src_LoadReadCounts.R"
+log2FC_mm9_mTORi_1d <- res_FRNA_mTORi[rank(res_FRNA_mTORi$baseMean) %in% seq(nrow(res_FRNA_mTORi), nrow(res_FRNA_mTORi)-10000) &
+                                        rownames(res_FRNA_mTORi) %in% rownames(Tx_mm9_Bulut), ]
+
+log2FC_mm9_Bulut <- log2FC_mm9_Bulut[rownames(log2FC_mm9_mTORi_1d), ]
+
+data.frame(x = log2FC_mm9_mTORi_1d$log2FoldChange, 
+           y = log2FC_mm9_Bulut) %>%
+  trim_quantile(q = 0.997) %>% `colnames<-`(., c("x", "y")) %>% as.data.frame() %>%
+plot_scatter(.xlab = "log2FC FRNA mTORi 1d", .ylab = "log2FC Bulut et al. mTORi 14d",
+             xlim = c(-2, 1.5), ylim = c(-2.5, 2.5))

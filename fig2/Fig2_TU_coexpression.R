@@ -24,17 +24,16 @@ mtch <- findOverlaps(TU.DE.mm10.gr, gene.gr)
 TU.DE.mm10.gr$gene_id <- NA
 TU.DE.mm10.gr$gene_id[queryHits(mtch)] <- gene.gr$gene_id[subjectHits(mtch)]
 
-
 # -----------------------------------------------------------------------------------------------------
+# gene-gene relative positions
+TU.coding.gr <- TU.DE.mm10.gr[TU.DE.mm10.gr$location == "protein_coding"]
+names(TU.coding.gr) <- TU.coding.gr$gene_id
+TU.coding.promoters <- promoters(TU.coding.gr, upstream = 2000, downstream = 0)
+levels(strand(TU.coding.promoters)) <- c("-", "+", "*")
+TU.coding.ds <- flank(TU.coding.gr, width = 2000, start = F)
+levels(strand(TU.coding.ds)) <- c("-", "+", "*")
+
 if (T) {
-  # gene-gene relative positions
-  TU.coding.gr <- TU.DE.mm10.gr[TU.DE.mm10.gr$location == "protein_coding"]
-  names(TU.coding.gr) <- TU.coding.gr$gene_id
-  TU.coding.promoters <- promoters(TU.coding.gr, upstream = 2000, downstream = 0)
-  levels(strand(TU.coding.promoters)) <- c("-", "+", "*")
-  TU.coding.ds <- flank(TU.coding.gr, width = 2000, start = F)
-  levels(strand(TU.coding.ds)) <- c("-", "+", "*")
-  
   # get matches
   #   ds downstream sense
   #   ua upstream antisense
@@ -116,8 +115,6 @@ if (T) {
 # gene-intergenic TU neighboring
 TU.intergenic.gr <- TU.DE.mm10.gr[TU.DE.mm10.gr$location == "intergenic"]
 TU.intergenic.gr$id <- seq_along(TU.intergenic.gr)
-TU.coding.promoters <- promoters(TU.coding.gr, upstream = 2000, downstream = 0)
-TU.coding.ds <- flank(TU.coding.gr, width = 2000, start = F)
 
 gene.intergenic.pairs <- foreach (i = seqlevels(TU.coding.gr), .combine = rbind) %dopar% {
   # extract intergenic neighbors for each chromosome
@@ -169,15 +166,18 @@ gene.intergenic.pairs <- foreach (i = seqlevels(TU.coding.gr), .combine = rbind)
   out_table
 }
 
-gaps <- start(TU.intergenic.gr[gene.intergenic.pairs$id]) - 
+# gap of TU TSS to gene boundary
+gaps <- start(promoters(TU.intergenic.gr[gene.intergenic.pairs$id], upstream = 0, downstream = 0)) - 
   cbind(start(TU.coding.gr[gene.intergenic.pairs$gene_id]),
         end(TU.coding.gr[gene.intergenic.pairs$gene_id]))
 idx <- ifelse(gene.intergenic.pairs$strand == "+", 
               ifelse(grepl("up", gene.intergenic.pairs$type), 1, 2), 
               ifelse(grepl("up", gene.intergenic.pairs$type), 2, 1))
-gene.intergenic.pairs$gap_boundary <- sapply(seq_len(nrow(gaps)),
-                                             function(x)
-                                               gaps[x, idx[x]]) * ifelse(gene.intergenic.pairs$strand == "+", 1,-1) / 1e3
+
+gene.intergenic.pairs$gap_boundary <- 
+  sapply(seq_along(idx),
+         function(x) gaps[x, idx[x]]
+         ) * ifelse(gene.intergenic.pairs$strand == "+", 1, -1) / 1e3
 
 tmp_table <- cbind(mcols(TU.coding.gr[gene.intergenic.pairs$gene_id])[, 18:22], 
                    mcols(TU.intergenic.gr[gene.intergenic.pairs$id])[, 18:22])
@@ -194,28 +194,30 @@ gap_breaks <- c(min(gene.intergenic.pairs$gap_boundary),
                 c(-400, -200, -100, -75, -50, -30, -20, -10, 0, 10, 20, 30, 50, 75, 100, 200, 400),# * 1000,
                 max(gene.intergenic.pairs$gap_boundary))
 
-gene.intergenic.pairs$gap_class <- cut(gene.intergenic.pairs$gap, 
+gene.intergenic.pairs$gap_class <- cut(gene.intergenic.pairs$gap_boundary, 
                                        breaks = gap_breaks, 
                                        labels = 1:18) %>% as.numeric()
 gene.intergenic.pairs <- gene.intergenic.pairs[!is.na(gene.intergenic.pairs$gap_class), ]
 
 # plot intergenic TU coverage
-tmp.intergenic.pairs <- gene.intergenic.pairs[abs(gene.intergenic.pairs$gap) < 1e5, ]
+tmp.intergenic.pairs <- gene.intergenic.pairs[abs(gene.intergenic.pairs$gap_boundary) < 1e2, ]
 tmp.gr <- TU.intergenic.gr[tmp.intergenic.pairs$id]
+
 as.idx <- grepl("antisense", tmp.intergenic.pairs$type)
+down.idx <- grepl("down", tmp.intergenic.pairs$type)
 
-tmp.cov.gr <- IRanges(start = tmp.intergenic.pairs$gap + 1e5 - ifelse(as.idx, width(tmp.gr), 0), 
-                      width = width(tmp.gr))
+tmp.cov.gr <- IRanges(start = tmp.intergenic.pairs$gap_boundary + 1e2 - ifelse(down.idx, width(tmp.gr) / 1e3, 0), 
+                      width = width(tmp.gr) / 1e3)
 
-s.cov <- coverage(tmp.cov.gr[!as.idx], width = 2e5) %>% spline(x = seq_len(2e5), n = 200) %>% "$"(y)
-as.cov <- coverage(tmp.cov.gr[as.idx], width = 2e5) %>% spline(x = seq_len(2e5), n = 200) %>% "$"(y)
+s.cov <- coverage(tmp.cov.gr[!as.idx], width = 2e2) %>% spline(x = seq_len(2e2), n = 200) %>% "$"(y)
+as.cov <- coverage(tmp.cov.gr[as.idx], width = 2e2) %>% spline(x = seq_len(2e2), n = 200) %>% "$"(y)
 
 insert_NA <- function(x, p = 100, n_0 = 30) c(x[seq_len(p)], rep(NA, n_0), x[seq_len(p) + p])
 dat <- data.frame(Pos = rep(1:230, 2),
                   Cov = c(s.cov %>% insert_NA(), 
                           as.cov %>% insert_NA()),
-                  Direction = c(rep("Sense", 230), rep("Antisense", 230)))
-dat$Direction <- factor(dat$Direction, levels = c("Sense", "Antisense"))
+                  Direction = c(rep("Same", 230), rep("Opposite", 230)))
+dat$Direction <- factor(dat$Direction, levels = c("Same", "Opposite"))
 
 ggplot(dat, aes(x = Pos, y = Cov)) +
   geom_rect(aes(xmin = 100, xmax = 130, ymin = -Inf, ymax = 0),
@@ -236,20 +238,14 @@ ggsave(filename = "FigS2_TU_gene_neighbor_coverage_direction.png",
 
 # enhancer coverage
 enhancer_mm10 <- readRDS("../data/enhancer_types.mm10.RData")
-
-tmp.intergenic.pairs <- gene.intergenic.pairs[abs(gene.intergenic.pairs$gap) < 1e5, ]
-tmp.gr <- TU.intergenic.gr[tmp.intergenic.pairs$id]
 enh.idx <- findOverlaps(tmp.gr, enhancer_mm10) %>% countQueryHits() > 0
 
-tmp.cov.gr <- IRanges(start = tmp.intergenic.pairs$gap + 1e5 - ifelse(as.idx, width(tmp.gr), 0), 
-                      width = 1000)
-
-enh.cov <- coverage(tmp.cov.gr[enh.idx], width = 2e5) %>%
+enh.cov <- coverage(tmp.cov.gr[enh.idx], width = 2e2) %>%
   # smooth.spline(x = seq_len(2e5), df = 20) %>% "$"(y) %>%
-  spline(x = seq_len(2e5), n = 200) %>% "$"(y) 
-nenh.cov <- coverage(tmp.cov.gr[!enh.idx], width = 2e5) %>% 
+  spline(x = seq_len(2e2), n = 200) %>% "$"(y) 
+nenh.cov <- coverage(tmp.cov.gr[!enh.idx], width = 2e2) %>% 
   # smooth.spline(x = seq_len(2e5), df = 20) %>% "$"(y) %>%
-  spline(x = seq_len(2e5), n = 200) %>% "$"(y)
+  spline(x = seq_len(2e2), n = 200) %>% "$"(y)
 
 dat <- data.frame(Pos = rep(1:230, 2),
                   Cov = c(enh.cov %>% insert_NA(), 
