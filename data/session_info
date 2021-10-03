@@ -1,0 +1,95 @@
+R version 3.6.3 (2020-02-29)
+Platform: x86_64-conda-linux-gnu (64-bit)
+Running under: Ubuntu 18.04.5 LTS
+
+
+locale:
+ [1] LC_CTYPE=en_US.UTF-8       LC_NUMERIC=C               LC_TIME=en_GB.UTF-8       
+ [4] LC_COLLATE=en_US.UTF-8     LC_MONETARY=en_GB.UTF-8    LC_MESSAGES=en_US.UTF-8   
+ [7] LC_PAPER=en_GB.UTF-8       LC_NAME=C                  LC_ADDRESS=C              
+[10] LC_TELEPHONE=C             LC_MEASUREMENT=en_GB.UTF-8 LC_IDENTIFICATION=C       
+
+attached base packages:
+ [1] grid      stats4    parallel  stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+ [1] ggpubr_0.4.0            RColorBrewer_1.1-2      viridis_0.6.1           viridisLite_0.4.0      
+ [5] gridExtra_2.3           ggplot2_3.3.5           matrixStats_0.60.0      tibble_3.1.3           
+ [9] dplyr_1.0.7             doParallel_1.0.16       iterators_1.0.13        foreach_1.5.1          
+[13] AnnotationFilter_1.10.0 biomaRt_2.42.1          org.Mm.eg.db_3.10.0     AnnotationDbi_1.48.0   
+[17] Biobase_2.46.0          rtracklayer_1.46.0      BiocManager_1.30.16     gmapR_1.28.0           
+[21] Rsamtools_2.2.3         Biostrings_2.54.0       XVector_0.26.0          GenomicRanges_1.38.0   
+[25] GenomeInfoDb_1.22.1     IRanges_2.20.2          S4Vectors_0.24.4        BiocGenerics_0.32.0    
+
+loaded via a namespace (and not attached):
+  [1] pacman_0.5.1                            utf8_1.2.2                             
+  [3] tidyselect_1.1.1                        RSQLite_2.2.7                          
+  [5] htmlwidgets_1.5.3                       BiocParallel_1.20.1                    
+  [7] pROC_1.17.0.1                           munsell_0.5.0                          
+  [9] codetools_0.2-18                        withr_2.4.2                            
+ [11] colorspace_2.0-2                        GOSemSim_2.12.1                        
+ [13] knitr_1.33                              rstudioapi_0.13                        
+ [15] ggsignif_0.6.2                          DOSE_3.12.0                            
+ [17] Rsubread_2.0.1                          labeling_0.4.2                         
+ [19] GenomeInfoDbData_1.2.2                  polyclip_1.10-0                        
+ [21] bit64_4.0.5                             farver_2.1.0                           
+ [23] vctrs_0.3.8                             generics_0.1.0                         
+ [25] ipred_0.9-11                            xfun_0.24                              
+ [27] BiocFileCache_1.10.2                    R6_2.5.0                               
+ [29] locfit_1.5-9.4                          bitops_1.0-7                           
+ [31] cachem_1.0.5                            reshape_0.8.8                          
+ [33] fgsea_1.12.0                            DelayedArray_0.12.3                    
+ [35] assertthat_0.2.1                        scales_1.1.1                           
+ [37] nnet_7.3-16                             gtable_0.3.0                           
+ [39] ensembldb_2.10.2                        timeDate_3043.102                      
+ [41] rlang_0.4.11                            genefilter_1.68.0                      
+ [43] splines_3.6.3                           rstatix_0.7.0                          
+ [45] lazyeval_0.2.2                          ModelMetrics_1.2.2.2                   
+ [47] hexbin_1.28.2                           broom_0.7.9                            
+ [49] checkmate_2.0.0                         reshape2_1.4.4                         
+ [51] abind_1.4-5                             GenomicFeatures_1.38.2                 
+ [53] backports_1.2.1                         qvalue_2.18.0                          
+ [55] Hmisc_4.5-0                             caret_6.0-88                           
+ [57] tools_3.6.3                             lava_1.6.9                             
+ [59] ellipsis_0.3.2                          ggridges_0.5.3                         
+ [61] Rcpp_1.0.7                              plyr_1.8.6                             
+ [63] base64enc_0.1-3                         progress_1.2.2                         
+ [65] zlibbioc_1.32.0                         purrr_0.3.4                            
+ [67] RCurl_1.98-1.3                          prettyunits_1.1.1                      
+ [69] VariantTools_1.28.1                     rpart_4.1-15                           
+ [71] openssl_1.4.4                           cowplot_1.1.1                          
+ [73] SummarizedExperiment_1.16.1             haven_2.4.2                            
+ [75] ggrepel_0.9.1                           cluster_2.1.2                          
+ [77] magrittr_2.0.1                          data.table_1.14.0                      
+ [79] DO.db_2.9                               openxlsx_4.2.4                         
+ [81] TxDb.Mmusculus.UCSC.mm9.knownGene_3.2.2 ProtGenerics_1.18.0                    
+ [83] hms_1.1.0                               xtable_1.8-4                           
+ [85] XML_3.99-0.3                            rio_0.5.27                             
+ [87] jpeg_0.1-9                              readxl_1.3.1                           
+ [89] compiler_3.6.3                          KernSmooth_2.23-20                     
+ [91] crayon_1.4.1                            htmltools_0.5.1.1                      
+ [93] Formula_1.2-4                           tidyr_1.1.3                            
+ [95] geneplotter_1.64.0                      lubridate_1.7.10                       
+ [97] DBI_1.1.1                               tweenr_1.0.2                           
+ [99] dbplyr_2.1.1                            MASS_7.3-54                            
+[101] rappdirs_0.3.3                          Matrix_1.3-4                           
+[103] car_3.0-11                              EnsDb.Mmusculus.v79_2.99.0             
+[105] gower_0.2.2                             forcats_0.5.1                          
+[107] pkgconfig_2.0.3                         GenomicAlignments_1.22.1               
+[109] foreign_0.8-72                          recipes_0.1.16                         
+[111] annotate_1.64.0                         prodlim_2019.11.13                     
+[113] stringr_1.4.0                           VariantAnnotation_1.32.0               
+[115] digest_0.6.27                           cellranger_1.1.0                       
+[117] fastmatch_1.1-3                         htmlTable_2.2.1                        
+[119] curl_4.3.2                              lifecycle_1.0.0                        
+[121] nlme_3.1-152                            carData_3.0-4                          
+[123] askpass_1.1                             BSgenome_1.54.0                        
+[125] fansi_0.5.0                             pillar_1.6.2                           
+[127] lattice_0.20-44                         fastmap_1.1.0                          
+[129] httr_1.4.2                              survival_3.2-11                        
+[131] GO.db_3.10.0                            glue_1.4.2                             
+[133] zip_2.2.0                               png_0.1-7                              
+[135] bit_4.0.4                               ggforce_0.3.3                          
+[137] class_7.3-19                            stringi_1.7.3                          
+[139] blob_1.2.2                              DESeq2_1.26.0                          
+[141] latticeExtra_0.6-29                     memoise_2.0.0  
