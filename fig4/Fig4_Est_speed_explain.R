@@ -100,7 +100,7 @@ estimate_elongation_speed <- function(TU.gr) {
   colnames(TT_mat) <- gsub("LRNA_(.*).Aligned.*", "\\1", colnames(TT_mat))
   TT_mat <- sweep(TT_mat, 2, L_RNA_sf[colnames(TT_mat)], "/")
   TT_mat <- sapply(c("SL", "2i", "mTORi"), function(x) rowMeans(TT_mat[, grep(x, colnames(TT_mat))]))
-  return(log10(TT_mat + 1) - log10(pol2_mat[, 1] + 1))
+  return(log10(TT_mat + 1) - log10(pol2_mat + 1))
 }
 
 mRNA.speed <- estimate_elongation_speed(gene.gr)
@@ -109,7 +109,7 @@ pausing.speed <- estimate_elongation_speed(pause_sites.gr)
 
 # scaling with measured speed
 elongation_speed_table <- read.table("../fig4/data/elongation_speed_table.txt")
-elongation_speed_table <- elongation_speed_table[#elongation_speed_table$speed > 0.5 &
+elongation_speed_table <- elongation_speed_table[# elongation_speed_table$speed > 0.5 &
                                                    rownames(elongation_speed_table) %in% names(gene.gr), ]
 
 est_speed_residual <- rowMeans(mRNA.speed[rownames(elongation_speed_table), ]) - log10(elongation_speed_table$speed)
@@ -131,7 +131,7 @@ data_speed_time <- data.frame(Type = c(rep("mRNA", nrow(mRNA.speed) * 3),
 data_speed_time <- cbind(data_speed_time,
                          rbind(reshape::melt(mRNA.speed)[, 2:3], reshape::melt(ncRNA.speed)[, 2:3]),
                          c(reshape::melt(mRNA.time)[, 3], reshape::melt(ncRNA.time)[, 3])
-)
+                         )
 colnames(data_speed_time) <- c("Type", "Sample", "Speed", "Time")
 data_speed_time$Sample <- factor(data_speed_time$Sample, c("SL", "2i", "mTORi"))
 data_speed_time$Type <- factor(data_speed_time$Type, c("mRNA", c("intergenic", "uaRNA")))
@@ -235,7 +235,7 @@ g2.2 <- data.frame(x = pausing.speed[names(coding.promoters)[queryHits(promoter_
                r = "0.25")
 
 # mRNA velocity vs pausing velocity | 0.4609146
-rm.idx <- which(pausing.time[, 1] %in% names(head(sort(table(pausing.time[,1]), T))))
+rm.idx <- which(pausing.time[, 1] %in% names(head(sort(table(pausing.time[, 1]), T))))
 g2.3 <- data.frame(x = mRNA.speed[-rm.idx, 1], 
            y = pausing.speed[-rm.idx, 1]) %>%
   plot_scatter(.xlab = "Est. mRNA velocity (kb/min)\n",
@@ -378,6 +378,18 @@ if (T) {
   TU.intergenic.mm9.gr <- TU.nc.mm9[TU.nc.mm9$location == "intergenic"]
   TU.intergenic.mm9.gr$id <- seq_len(length(TU.intergenic.mm9.gr))
   
+  F5_enhancer_mm9 <- importRanges("../../data/anno_ref/FANTOM5/enhancers/mouse_permissive_enhancers_phase_1_and_2_mm9.bed")
+  
+  TU.intergenic.mm9_as <- promoters(TU.intergenic.mm9.gr, upstream = 500, downstream = 0)
+  levels(strand(TU.intergenic.mm9_as)) <- c("-", "+", "*")
+  
+  mtch_dir <- findOverlaps(TU.intergenic.mm9.gr, TU.intergenic.mm9_as)
+  TU.intergenic.mm9.gr$direction <- ifelse(countQueryHits(mtch_dir) > 0,
+                                       "Bidirectional", "Unidirectional" )
+  TU.intergenic.mm9.gr$enhancer <- ifelse(findOverlaps(F5_enhancer_mm9, TU.intergenic.mm9.gr) %>% countSubjectHits > 0,
+                                      "Enhancer", "TX")
+  
+  
   gene.intergenic.pairs.mm9 <- 
     foreach (i = seqlevels(TU.intergenic.mm9.gr), .combine = rbind) %dopar% {
       # extract intergenic neighbors for each chromosome
@@ -447,6 +459,8 @@ if (T) {
                      ncRNA.speed[TU.nc.mm9$location == "intergenic", ][gene.intergenic.pairs.mm9$id, ])
   colnames(tmp_table) <- paste0(c(rep("Gene_", 3), rep("TU_", 3)), colnames(tmp_table))
   gene.intergenic.pairs.mm9 <- cbind(gene.intergenic.pairs.mm9, tmp_table)
+  gene.intergenic.pairs.mm9$enhancer <- TU.intergenic.mm9.gr$enhancer[gene.intergenic.pairs.mm9$id]
+  gene.intergenic.pairs.mm9$direction <- TU.intergenic.mm9.gr$direction[gene.intergenic.pairs.mm9$id]
   rm(tmp_table)
   
   gap_breaks <- c(min(gene.intergenic.pairs.mm9$gap_boundary), 
@@ -464,6 +478,9 @@ if (T) {
     tmp.pairs <- gene.intergenic.pairs.mm9[as.numeric(gene.intergenic.pairs.mm9$gap_class) == i, ]
     as.idx <- grepl("antisense", tmp.pairs$type)
     
+    enh.idx <- grepl("Enhancer", tmp.pairs$enhancer)
+    bi.idx <- grepl("Bidirectional", tmp.pairs$direction)
+    
     mat <- rbind(mat, c("Pos" = i, 
                         "cor_SL_Sense" = cor(tmp.pairs[!as.idx, "Gene_SL"], tmp.pairs[!as.idx, "TU_SL"]),
                         "cor_2i_Sense" = cor(tmp.pairs[!as.idx, "Gene_2i"], tmp.pairs[!as.idx, "TU_2i"]),
@@ -471,20 +488,29 @@ if (T) {
                         
                         "cor_SL_Antisense" = cor(tmp.pairs[as.idx, "Gene_SL"], tmp.pairs[as.idx, "TU_SL"]),
                         "cor_2i_Antisense" = cor(tmp.pairs[as.idx, "Gene_SL"], tmp.pairs[as.idx, "TU_2i"]),
-                        "cor_mTORi_Antisense" = cor(tmp.pairs[as.idx, "Gene_mTORi"], tmp.pairs[as.idx, "TU_mTORi"])
+                        "cor_mTORi_Antisense" = cor(tmp.pairs[as.idx, "Gene_mTORi"], tmp.pairs[as.idx, "TU_mTORi"]),
+                        
+                        "cor_SL_Enhancer" = cor(tmp.pairs[enh.idx, "Gene_SL"], tmp.pairs[enh.idx, "TU_SL"]),
+                        "cor_2i_Enhancer" = cor(tmp.pairs[enh.idx, "Gene_SL"], tmp.pairs[enh.idx, "TU_2i"]),
+                        "cor_mTORi_Enhancer" = cor(tmp.pairs[enh.idx, "Gene_mTORi"], tmp.pairs[enh.idx, "TU_mTORi"]),
+                        
+                        "cor_SL_Non_enh_Bidirectional" = cor(tmp.pairs[!enh.idx&bi.idx, "Gene_SL"], tmp.pairs[!enh.idx&bi.idx, "TU_SL"]),
+                        "cor_2i_Non_enh_Bidirectional" = cor(tmp.pairs[!enh.idx&bi.idx, "Gene_SL"], tmp.pairs[!enh.idx&bi.idx, "TU_2i"]),
+                        "cor_mTORi_Non_enh_Bidirectional" = cor(tmp.pairs[!enh.idx&bi.idx, "Gene_mTORi"], tmp.pairs[!enh.idx&bi.idx, "TU_mTORi"])
     ))
   }
   mat[10:18, 1] <- (10:18) + 3 # add gene box
-  mat <- rbind(mat[1:9, ], matrix(c(10:12, rep(NA, 18)), nrow = 3), mat[10:18, ])
+  mat <- rbind(mat[1:9, ], matrix(c(10:12, rep(NA, 36)), nrow = 3), mat[10:18, ])
   
   dat_mat <- reshape2::melt(data = as.data.frame(mat), id = "Pos")
-  dat_mat$Sample <- factor(gsub("cor_(.*)_.*", "\\1", dat_mat$variable), 
+  dat_mat$Sample <- factor(gsub(".*(SL|2i|mTORi).*", "\\1", dat_mat$variable), 
                            levels = c("SL", "2i", "mTORi"))
   dat_mat$Direction <- factor(gsub("cor_(.*)_(.*)", "\\2", dat_mat$variable), 
-                              levels = c("Sense", "Antisense"))
+                              levels = c("Sense", "Antisense", "Enhancer", "Bidirectional"))
   dat_mat$line_group <- factor(cumsum(is.na(dat_mat$value)))
   
-  ggplot(dat_mat, aes(x = Pos, y = value, color = Direction, group = line_group)) +
+  ggplot(dat_mat[dat_mat$Direction %in% c("Sense", "Antisense"), ],
+         aes(x = Pos, y = value, color = Direction, group = line_group)) +
     geom_hline(yintercept = 0, lty = 2, col = "grey50") +
     geom_rect(aes(xmin = 10, xmax = 12, ymin = -Inf, ymax = 0),
               fill = "#0000B2", linetype = 0) +
@@ -502,9 +528,9 @@ if (T) {
     scale_x_continuous(name = "\nDistance to gene (kb)", 
                        breaks = c(1, 5, 8, 10, 12, 14, 17, 21), 
                        labels = c(gap_breaks[c(2, 5, 8)], c("5\'", "3\'"), gap_breaks[c(12, 15, 18)]) ) +
-    scale_y_continuous(breaks = c(0, 0.2),
-                       labels = c(0, 0.2), 
-                       limits = c(-0.1, 0.2)) +
+    scale_y_continuous(breaks = c(-0.2, 0, 0.2),
+                       labels = c(-0.2, 0, 0.2), 
+                       limits = c(-0.3, 0.3)) +
     scale_color_manual(name = "Intergenic", values = colors_9[7:6]) +
     ylab("(log10) Est. velocity correlation") +
     theme_setting + 
@@ -515,6 +541,41 @@ if (T) {
           legend.position = "top")  
     
   ggsave(filename = "FigS4_est_velocity_intergenic_TU_gene_correlation.png",
-         path = "../figS4/figs/", device = "png", width = 4, height = 6)
+         path = "../figS4/figs/", device = "png", width = 5, height = 4)
+  
+  
+  ggplot(dat_mat[dat_mat$Direction %ni% c("Sense", "Antisense"), ],
+         aes(x = Pos, y = value, color = Direction, group = line_group)) +
+    geom_hline(yintercept = 0, lty = 2, col = "grey50") +
+    geom_rect(aes(xmin = 10, xmax = 12, ymin = -Inf, ymax = 0),
+              fill = "#0000B2", linetype = 0) +
+    geom_rect(aes(xmin = 10, xmax = 12, ymin = 0, ymax = Inf),
+              fill = "grey75", linetype = 0) +
+    geom_rect(aes(xmin = 9, xmax = 10, ymin = -Inf, ymax = Inf),
+              fill = "grey95", linetype = 0) +
+    geom_rect(aes(xmin = 12, xmax = 13, ymin = -Inf, ymax = Inf),
+              fill = "grey95", linetype = 0) +
+    geom_point() + 
+    
+    geom_line() +
+    
+    facet_grid(Sample~. ) + 
+    scale_x_continuous(name = "\nDistance to gene (kb)", 
+                       breaks = c(1, 5, 8, 10, 12, 14, 17, 21), 
+                       labels = c(gap_breaks[c(2, 5, 8)], c("5\'", "3\'"), gap_breaks[c(12, 15, 18)]) ) +
+    scale_y_continuous(breaks = c(-0.2, 0, 0.2),
+                       labels = c(-0.2, 0, 0.2), 
+                       limits = c(-0.3, 0.3)) +
+    scale_color_manual(name = "Direction", values = colors_9[7:6]) +
+    ylab("(log10) Est. velocity correlation") +
+    theme_setting + 
+    theme(strip.text = element_text(size = 12),
+          axis.ticks = element_line(), 
+          panel.grid.major = element_line(), 
+          panel.spacing = unit(1, "lines"),
+          legend.position = "top")  
+  
+  ggsave(filename = "FigS4_est_velocity_intergenic_TU_gene_enh_bi_correlation.png",
+         path = "../figS4/figs/", device = "png", width = 5, height = 4)
   
 }
