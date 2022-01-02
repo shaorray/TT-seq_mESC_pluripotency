@@ -40,25 +40,25 @@ TT_Pol2s5p_sandwich_mat_list <- readRDS("data/TT_Pol2s5p_sandwich_mat.RData") # 
 n_pos <- ncol(pol2s5p_sandwich_mat_list[[1]])
 
 pol2s5p_data <- data.frame(position = rep(seq_len(n_pos), 3),
-                           value = c(colMeans(log1p(pol2s5p_sandwich_mat_list[[1]])),
-                                     colMeans(log1p(pol2s5p_sandwich_mat_list[[2]])),
-                                     colMeans(log1p(pol2s5p_sandwich_mat_list[[3]]))),
+                           value = c(colMeans(log1p(pol2s5p_sandwich_mat_list[[1]])[idx,]),
+                                     colMeans(log1p(pol2s5p_sandwich_mat_list[[2]])[idx,]),
+                                     colMeans(log1p(pol2s5p_sandwich_mat_list[[3]])[idx,])),
                            sample = factor(c(rep("SL", n_pos), rep("2i", n_pos), rep("mTORi", n_pos)),
                                            levels = c("SL", "2i", "mTORi"))
 )
 
 ttseq_data <- data.frame(position = rep(seq_len(n_pos), 3),
-                         value = c(colMeans(log1p(TT_gene_sandwich_mat_list[[1]])),
-                                   colMeans(log1p(TT_gene_sandwich_mat_list[[2]])),
-                                   colMeans(log1p(TT_gene_sandwich_mat_list[[3]]))),
+                         value = c(colMeans(log1p(TT_gene_sandwich_mat_list[[1]])[idx,]),
+                                   colMeans(log1p(TT_gene_sandwich_mat_list[[2]])[idx,]),
+                                   colMeans(log1p(TT_gene_sandwich_mat_list[[3]])[idx,])),
                          sample = factor(c(rep("SL", n_pos), rep("2i", n_pos), rep("mTORi", n_pos)),
                                          levels = c("SL", "2i", "mTORi"))
 )
-n_pos <- ncol(pol2s5p_sandwich_mat_list[[1]])
+
 TT_Pol2s5p_data <- data.frame(position = rep(seq_len(n_pos), 3),
-                              value = c(colMeans(TT_Pol2s5p_sandwich_mat_list[[1]]),
-                                        colMeans(TT_Pol2s5p_sandwich_mat_list[[2]]),
-                                        colMeans(TT_Pol2s5p_sandwich_mat_list[[3]])),
+                              value = c(colMeans(TT_Pol2s5p_sandwich_mat_list[[1]][idx,]),
+                                        colMeans(TT_Pol2s5p_sandwich_mat_list[[2]][idx,]),
+                                        colMeans(TT_Pol2s5p_sandwich_mat_list[[3]][idx,])),
                               sample = factor(c(rep("SL", n_pos), rep("2i", n_pos), rep("mTORi", n_pos)),
                                               levels = c("SL", "2i", "mTORi"))
 )
@@ -86,7 +86,7 @@ g1.2 <- ggplot(ttseq_data, aes(x = position, y = value, color = sample)) +
   geom_line(size = 1.5) +
   scale_color_manual(values = colors_20[c(13, 2, 7)]) +
   xlab("") +
-  ylab("log(Nascent RNA)") +
+  ylab("log(Labeled RNA)") +
   labs(color = "Sample") +
   scale_x_continuous(breaks = c(21, 221), labels = c("TSS", "TTS")) +
   theme_setting +
@@ -101,7 +101,7 @@ g1.3 <- ggplot(TT_Pol2s5p_data, aes(x = position, y = value, color = sample)) +
   geom_line(size = 1.5) +
   scale_color_manual(values = colors_20[c(13, 2, 7)]) +
   xlab("") +
-  ylab("log(Nascent RNA / Pol II-S5p)") +
+  ylab("log(Labeled RNA / Pol II-S5p)") +
   labs(color = "Sample") +
   scale_x_continuous(breaks = c(21, 221), labels = c("TSS", "TTS")) +
   theme_setting +
@@ -191,7 +191,7 @@ speed_cls <- factor(k$cluster,
                       "mean"
                     )[, 2])) %>% as.numeric() # Slow 4258 Medium 4106 Fast 2022 
 
-# speed class ~ speed profile
+# (Fig 3) speed class ~ speed profile
 
 speed_class_data <- data.frame(
   position = rep(seq_len(n_pos), 3),
@@ -227,7 +227,7 @@ ggsave(filename = "Fig3_Est_speed_class_coverage.png", path = "figs",
        device = "png", width = 3.5, height = 3.5)
 
 
-# speed class ~ pausing index
+# (Fig 3) speed class ~ pausing index
 pausing_index_mat2 <- pausing_index_mat[rownames(est_speed_SL_mat), ]
 data.frame(cls = as.factor(speed_cls),
            pi = log10(pausing_index_mat2[, 3])) %>%
@@ -247,7 +247,7 @@ data.frame(cls = as.factor(speed_cls),
 ggsave(filename = "Fig3_Pausing_index_Est_speed_class.png", path = "figs",
        device = "png", width = 3.5, height = 3.5)
 
-# heatmap
+# (Fig EV4) heatmap
 colorset = colorRampPalette(c("yellow", "white", "deepskyblue3", "black"))(100) #%>% rev()
 
 plot_heatmap <- function(est_speed_SL_mat, cls = 1, .main = "") {
@@ -291,7 +291,7 @@ if (T) {
   dev.off()
 }
 
-# plot Pol2s5p density tss ~ gene body --------------------------------------------------
+# (not shown) plot Pol2s5p density tss ~ gene body --------------------------------------------------
 if (F) {
   dat <- data.frame(TSS = log10(pausing_mat[,3]),
                     Gene_body = log10(gene_body_mat[,3])) %>%
@@ -343,7 +343,7 @@ if (F) {
          device = "png", width = 10, height = 3.5)
 }
 
-# plot pause index ~ RNA synthesis --------------------------------------------------
+# (Fig EV4) plot pause index ~ RNA synthesis --------------------------------------------------
 pausing_index_mat <- readRDS("../fig3/data/pausing_index_SL_2i.RData")
 pausing_index_mat <- pausing_index_mat[order(pausing_index_mat[,1], decreasing = T), c(3,1,4)]
 
@@ -458,7 +458,7 @@ ggsave(plot = grid.arrange(g1, g2, g3, nrow = 1),
        path = "../figS3/figs",
        device = "png", width = 10, height = 3.5)
 
-# plot gene body Pol II ~ RNA synthesis --------------------------------------------------
+# (Fig EV4) plot gene body Pol II ~ RNA synthesis --------------------------------------------------
 
 g4 <- ggplot(gene_body_production_mat, aes(x = Tx_RPK_SL, y = Pol2_SL)) + # n = 5890
   # geom_hex(bins= 50) +
@@ -541,7 +541,7 @@ ggsave(plot = grid.arrange(g4, g5, g6, ncol = 1),
        filename = "Fig3_Pol2S5p_genebody_tx.png", path = "figs",
        device = "png", width = 3.5, height = 10)
 
-# plot RNA synthesis explained ~ features --------------------------------------------------
+# (Fig Author Response) plot RNA synthesis explained ~ features --------------------------------------------------
 if (F) {
   genes.intercect <- intersect.Vector(rownames(readRDS("../fig5/data/elongation_speed_table.RData")), 
                                       intersect.Vector(rownames(pausing_index_mat), rownames(gene_body_production_mat)))
@@ -579,8 +579,9 @@ if (F) {
          device = "png", width = 4, height = 3)
 }
 
-# plot estimated speed ~ measured speed --------------------------------------------------
+# (Fig 3) plot estimated speed ~ measured speed --------------------------------------------------
 elongation_speed_table <- read.table("../fig3/data/elongation_speed_table.txt")
+elongation_speed_table <- elongation_speed_table[elongation_speed_table$time_points > 1, ]
 
 genes.intercect <- intersect.Vector(rownames(elongation_speed_table), 
                                     rownames(gene_body_production_mat))
@@ -595,6 +596,7 @@ dat_speed <- with(gene_body_production_mat[genes.intercect, ],
                              mu = pausing_production_mat[genes.intercect, "mu_SL"],
                              # measured speed
                              speed = log10(elongation_speed_table[genes.intercect, "speed"]),
+                             paper_est_speed = log10(paper_est_speed[match(genes.intercect, paper_est_speed$gene_id), "speed"]),
                              Pol2_den = (Pol2_SL)
                              )
                   )
@@ -602,7 +604,7 @@ rownames(dat_speed) <- genes.intercect
 dat_speed <- dat_speed %>% dplyr::filter(speed > -1)
 
 
-if (T) {
+if (F) {
   # validate measured speed from Gro-seq flv inhibition with provided table
   genes.intercect2 <- match(paper_est_speed$gene_id, rownames(elongation_speed_table))
   
@@ -628,7 +630,7 @@ if (T) {
          device = "png", width = 6, height = 4.5)
 }
 
-# plot speed, TX and Pol II interplays
+# (Fig 3) plot speed, TX and Pol II interplays
 g7 <- ggplot(dat_speed, aes(x = v_hat_SL, y = speed)) +
   geom_point(aes(color = get_dens(v_hat_SL, speed)), 
              size = 0.8) +
@@ -646,16 +648,19 @@ g7 <- ggplot(dat_speed, aes(x = v_hat_SL, y = speed)) +
   theme(legend.position = "none") 
 
 # plot estimated speed ~ samples ------------------------------------------------------------
+speed_residual <-  median(dat_speed$v_hat_SL) - median(dat_speed$speed) # to scale est. velocity
+
 dat_speed_cmp = data.frame(Sample = rep(c("SL", "2i", "mTORi"), 
                                         each = nrow(dat_speed)),
-                           Speed_hat = c(as.matrix(dat_speed[, 1:3])))
+                           Speed_hat = c(as.matrix(dat_speed[, 1:3])) - speed_residual)
 dat_speed_cmp$Sample <- factor(dat_speed_cmp$Sample, levels = rev(c("SL", "2i", "mTORi")))
 
 g8 <- ggplot(dat_speed_cmp,
              aes(x = Speed_hat, y = Sample, fill = Sample)) + 
   ggridges::geom_density_ridges(rel_min_height = 0.01, quantile_lines = TRUE, quantiles = 2, lty = 2) +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1), labels = 10^c(-2, -1, 0, 1)) +
   theme_setting +
-  xlab("\nEstimated velocity (a.u.)\n") +
+  xlab("\nEstimated velocity (kb/min)\n") +
   ylab("") +
   scale_fill_manual(values = colors_20[rev(c(13, 2, 7))]) +
   theme(legend.position = "none")
@@ -751,10 +756,10 @@ if (T) { # previous version
     theme(legend.position = "none") 
 }
 
-if (F) { # revision, 2021 Jul 26
+if (F) { 
+  # (Fig Author Response) revision, 2021 Jul 26
   # velocity ~ RNA copy
   elongation_speed_table <- read.table("../fig3/data/elongation_speed_table.txt")
-  # elongation_speed_table <- elongation_speed_table[elongation_speed_table$time_points > 1, ]
   
   sample_Tx_counts_Rates <- readRDS("../figS2/data/sample_Tx_counts_Rates_combined.RData")
   sample_Tx_counts_Rates <- sample_Tx_counts_Rates[sample_Tx_counts_Rates$gene_id %in% rownames(elongation_speed_table) &
@@ -788,9 +793,9 @@ if (F) { # revision, 2021 Jul 26
          device = "png", width = 4, height = 4)
 }
 
-ggsave(plot = cowplot::plot_grid(g11, g7, g12, g10, g8, ncol = 2, align = "v"),
-       filename = "Fig3_TTseq_Pol2S5p_speed_interplays2.png", path = "../fig3/figs",
-       device = "png", width = 7, height = 10)
+ggsave(plot = cowplot::plot_grid(g11, g7, g8, ncol = 1, align = "v"),
+       filename = "Fig3_TTseq_Pol2S5p_speed_interplays3.png", path = "../fig3/figs",
+       device = "png", width = 3.5, height = 10)
 
 
 # plot speed changes in 2i / mTORi ----------------------------------------------------
@@ -810,11 +815,22 @@ dat_speed_change <- dat_speed_change %>%
   dplyr::mutate("density_2i" = get_dens(v_hat, log10FC_2i, n.grid = 200)) %>%
   dplyr::mutate("density_mTORi" = get_dens(v_hat, log10FC_mTORi, n.grid = 200)) 
 
-g13 <- ggplot(dat_speed_change, aes(x = v_hat, y = log10FC_2i, color = density_2i)) +
+Kit_point <- dat_speed_change[res$GENEID[res$SYMBOL == "Kit"], ]
+
+g13 <- ggplot(dat_speed_change, aes(x = v_hat, y = log10FC_2i,
+                                    color = get_dens(v_hat, log10FC_2i, n.grid = 200))) +
   geom_hline(yintercept = 0,
              lwd = 1, 
              color = add.alpha("blue", 0.5)) +
-  geom_point(size = 1) + 
+  geom_point(size = 1) +
+  ggrepel::geom_label_repel(inherit.aes = FALSE, 
+                            data = Kit_point, 
+                            aes(x = v_hat, y = log10FC_2i), 
+                            label = 'Kit') +
+  geom_point(inherit.aes = FALSE, 
+                   data = Kit_point, 
+                   aes(x = v_hat, y = log10FC_2i), 
+                   color = "red") +
   geom_smooth(method = "gam",
               lwd = 0.5, 
               color = "red2",
@@ -828,11 +844,21 @@ g13 <- ggplot(dat_speed_change, aes(x = v_hat, y = log10FC_2i, color = density_2
   theme_setting +
   theme(legend.position = "none")
 
-g14 <- ggplot(dat_speed_change, aes(x = v_hat, y = log10FC_mTORi, color = density_mTORi)) +
+
+g14 <- ggplot(dat_speed_change, aes(x = v_hat, y = log10FC_mTORi,
+                                    color = get_dens(v_hat, log10FC_mTORi, n.grid = 200))) +
   geom_hline(yintercept = 0,
              lwd = 1, 
              color = add.alpha("blue", 0.5)) +
   geom_point(size = 1) + 
+  ggrepel::geom_label_repel(inherit.aes = FALSE, 
+                            data = Kit_point, 
+                            aes(x = v_hat, y = log10FC_mTORi), 
+                            label = 'Kit') +
+  geom_point(inherit.aes = FALSE, 
+             data = Kit_point, 
+             aes(x = v_hat, y = log10FC_mTORi), 
+             color = "red") +
   geom_smooth(method = "gam",
               lwd = 0.5, 
               color = "red2",
@@ -848,10 +874,10 @@ g14 <- ggplot(dat_speed_change, aes(x = v_hat, y = log10FC_mTORi, color = densit
 
 ggsave(plot = grid.arrange(g13, g14, ncol = 2),
        filename = "FigS4_MAplot_speed_change.png", 
-       path = "../figS4/figs", device = "png", width = 12, height = 6)
+       path = "../figS4/figs", device = "png", width = 10, height = 5)
 
 # -------------------------------------------------------------------------------------- #
-# SL2i velocity coverage
+# (Fig EV4) SL2i velocity coverage
 n_pos <- ncol(TT_Pol2s5p_sl2i_sandwich_mat[[1]])
 TT_Pol2s5p_sl2i_data <- data.frame(position = rep(seq_len(n_pos), 2),
                               value = c(colMeans(TT_Pol2s5p_sl2i_sandwich_mat[[1]]),
@@ -879,8 +905,42 @@ ggsave(filename = "FigS3_SL_SL2i_TTseq_Pol2S5p_coverage.png",
        path = "../figS3/figs", device = "png", width = 3.5, height = 3.5)
 
 # -------------------------------------------------------------------------------------- #
+# Pol2S5p coverage groups by expression levels
+gene_pol2sp5_bin <- cut(rowSums(pol2s5p_sandwich_mat_list[[1]][, 201:400]), 
+                        quantile(rowSums(pol2s5p_sandwich_mat_list[[1]][, 201:400]), c(0, 0.3, 0.6, 1)), 
+                        labels = c("low", "medium", "high"))
+plot(colMedians(pol2s5p_sandwich_mat_list[[1]][gene_pol2sp5_bin == "low", ]))
 
+up_gene.gr <- promoters(gene.gr, upstream = 21000, downstream = 0)
+down_gene.gr <- flank(gene.gr, width = 21000, start = F)
+ov.idx <- countSubjectHits(findOverlaps(query = gene.gr, up_gene.gr, ignore.strand = T)) > 0 |
+  countSubjectHits(findOverlaps(query = gene.gr, down_gene.gr, ignore.strand = T)) > 0
 
+n_pos = 600
+pol2s5p_expr_data <- data.frame(position = rep(seq_len(n_pos), 3),
+                                value = (c(colMeans(log1p(pol2s5p_sandwich_mat_list[[3]][gene_pol2sp5_bin == "low" & !ov.idx, ]), na.rm = T),
+                                          colMeans(log1p(pol2s5p_sandwich_mat_list[[3]][gene_pol2sp5_bin == "medium" & !ov.idx, ]), na.rm = T),
+                                          colMeans(log1p(pol2s5p_sandwich_mat_list[[3]][gene_pol2sp5_bin == "high" & !ov.idx, ]), na.rm = T) )),
+                                sample = factor(c(rep("low", n_pos), rep("medium", n_pos), rep("high", n_pos)),
+                                                levels = c("high", "medium", "low"))
+)
 
+g3 <- ggplot(pol2s5p_expr_data, aes(x = position, y = value, color = sample)) +
+  geom_rect(aes(xmin = -Inf, xmax = 201, ymin = -Inf, ymax = Inf),
+            fill = "grey", alpha = 0.01, linetype = 0) +
+  geom_rect(aes(xmin = 401, xmax = Inf, ymin = -Inf, ymax = Inf),
+            fill = "grey", alpha = 0.01, linetype = 0) +
+  geom_line(size = 1.5) +
+  geom_hline(yintercept = 0, size = 1, color = "red") +
+  scale_color_manual(values = colors_20[c(4,6,8)]) +
+  xlab("") +
+  ylab("log1p(Pol II-S5p)") +
+  labs(color = "mTORi: coverage") +
+  scale_x_continuous(breaks = c(1, 200, 401, 600), labels = c("-20 kb", "TSS", "TTS", "20 kb")) +
+  theme_setting +
+  theme(axis.text.x = element_text(size=14),
+        legend.position = "top")
 
-
+ggsave(plot = grid.arrange(g1, g2, g3, ncol = 1),
+       filename = "FigS4_Pol2S5p_coverage_class_high_medium_low.png", 
+       path = "../figS4/figs", device = "png", width = 6, height = 12)
