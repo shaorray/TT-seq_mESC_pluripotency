@@ -114,6 +114,8 @@ if (F) {
     keepOneTx(rowname_gene_id = T, is_gene_sum = T)
   txRC <- txRC[rowSums(txRC) > 0, ]
   
+  spRC <- count_table[grep("^chrS", rownames(count_table)), ]
+  
   # save read count
   saveRDS(txRC, "../data/txRC_SL_2i_mm9.RData") # raw count without normalization
 
@@ -308,7 +310,7 @@ meanSampleCounts <- function(tx_mat)
 }
 
 # ---------------------------------------------------------------------------- #
-# PCA plots of public data
+# (Fig EV1) PCA plot with public data
 if (F) {
   # load kallisto counts, SL vs 2i public data
   filenames <- sort(list.files('../data/kallisto_output_SL_2i/', full.names = T)) # count with combined reference GENCODE vM20 and ncRNA annotation
@@ -333,8 +335,9 @@ if (F) {
                           tmp
                         }
                       })
+  
   txRC_SL2i_LFC <- data.frame("Galonska_2i_24h" = txRC_SL2i[, 1] / txRC_SL2i[, 3],
-                          "Galonska_2i_3d" = txRC_SL2i[, 2] / txRC_SL2i[, 3],
+                          "Galonska_2i_3_passage" = txRC_SL2i[, 2] / txRC_SL2i[, 3],
                           "Bulut_2i" = txRC_SL2i[, 4] / txRC_SL2i[, 6],
                           "Bulut_mTORi" = txRC_SL2i[, 5] / txRC_SL2i[, 6],
                           "Bulut_v6.5_2i" = txRC_SL2i[, 7] / txRC_SL2i[, 9],
@@ -355,18 +358,52 @@ if (F) {
                         }
                       })
   txRC_FRNA_LFC <- data.frame("2i_2d" = txRC_FRNA[,1] / txRC_FRNA[,5], 
-                              # "2i_7d" = txRC_FRNA[,2] / txRC_FRNA[,5], # no replicate
+                              "2i_7d" = txRC_FRNA[,2] / txRC_FRNA[,5], # no replicate
                               "SL2i_2d" = txRC_FRNA[,6] / txRC_FRNA[,5], 
                               "mTORi_1d" = txRC_FRNA[,3] / txRC_FRNA[,5], 
-                              "mTORi_2d" = txRC_FRNA[,4] / txRC_FRNA[,5])
-  gene.ov <- intersect.Vector(rownames(txRC_FRNA_LFC), rownames(txRC_SL2i_LFC)) 
+                              "mTORi_2d" = txRC_FRNA[,4] / txRC_FRNA[,5]) %>% log2()
   
-  txRC_all_LFC <- cbind(txRC_FRNA_LFC[gene.ov, ],
-                    txRC_SL2i_LFC[gene.ov, ])
-  txRC_all_LFC <- txRC_all_LFC[is.finite(rowSums(txRC_all_LFC)) & !is.na(rowSums(txRC_all_LFC)), ]
- 
-  pca_all_LFC <- prcomp(t(txRC_all_LFC[intersect.Vector(res$GENEID[res$SYMBOL %in% unlist(pluripotent_markers)], # a list from "FigS2_RNA_turnover_comparison.R"
-                                                        rownames(txRC_all_LFC)), ]))
+  gene.ov <- intersect.Vector(rownames(txRC_FRNA_LFC),
+                              rownames(txRC_SL2i_LFC)) 
+  
+  sig_genes_all <- c(rownames(res_FRNA_2i)[res_FRNA_2i$padj < 0.05],
+                     rownames(res_FRNA_SL2i)[res_FRNA_SL2i$padj < 0.05],
+                     rownames(res_FRNA_mTORi)[res_FRNA_mTORi$padj < 0.05]) %>% intersect.Vector(gene.ov)
+  
+  txRC_all_LFC <- cbind(txRC_FRNA_LFC[sig_genes_all, ], txRC_SL2i_LFC[sig_genes_all, ])
+  tmp.idx <- is.finite(rowSums(txRC_all_LFC)) & !is.na(rowSums(txRC_all_LFC))
+  txRC_all_LFC <- txRC_all_LFC[tmp.idx, ]
+  rownames(txRC_all_LFC) <- sig_genes_all[tmp.idx]
+  
+  if (T) {
+    # prepare gene table
+    sig_gene_tab <- data.frame(gene_id = sig_genes_all[tmp.idx])
+    sig_gene_tab$gene_name <- res$SYMBOL[match(sig_gene_tab$gene_id, res$GENEID)]
+    sig_gene_tab$groud_state_2i <- ifelse(res_FRNA_2i[sig_gene_tab$gene_id, "padj"] > 0.05,
+                                          NA, ifelse(res_FRNA_2i[sig_gene_tab$gene_id, "log2FoldChange"] > 0,
+                                                     "Up", "Down"))
+    
+    sig_gene_tab$groud_state_SL2i <- ifelse(res_FRNA_SL2i[sig_gene_tab$gene_id, "padj"] > 0.05,
+                                            NA, ifelse(res_FRNA_SL2i[sig_gene_tab$gene_id, "log2FoldChange"] > 0,
+                                                       "Up", "Down"))
+    
+    sig_gene_tab$paused_state_mTORi <- ifelse(res_FRNA_mTORi[sig_gene_tab$gene_id, "padj"] > 0.05,
+                                              NA, ifelse(res_FRNA_mTORi[sig_gene_tab$gene_id, "log2FoldChange"] > 0,
+                                                         "Up", "Down"))
+    
+    sig_gene_tab$FRNA_2i_2d_log2FC <- res_FRNA_2i[sig_gene_tab$gene_id, "log2FoldChange"]
+    sig_gene_tab$FRNA_SL2i_2d_log2FC <- res_FRNA_SL2i[sig_gene_tab$gene_id, "log2FoldChange"]
+    sig_gene_tab$FRNA_mTORi_1d_log2FC <- res_FRNA_mTORi[sig_gene_tab$gene_id, "log2FoldChange"]
+    
+    write.csv(sig_gene_tab, "../data/State_specific_genes_fragmented_RNA-seq.csv")
+  }
+  
+  txRC_all_LFC1 <- `colnames<-`(trim_quantile(txRC_all_LFC, 0.9), colnames(txRC_all_LFC)) %>% as.data.frame()
+  txRC_all_LFC1 <- sweep(txRC_all_LFC1, 2, colMedians(as.matrix(txRC_all_LFC1)), "-")
+  rownames(txRC_all_LFC1) <- sig_genes_all[tmp.idx]
+  # pca_all_LFC <- prcomp(t(txRC_all_LFC[intersect.Vector(res$GENEID[res$SYMBOL %in% unlist(pluripotent_markers)], # a list from "FigS2_RNA_turnover_comparison.R"
+  #                                                       rownames(txRC_all_LFC)), ]))
+  pca_all_LFC <- prcomp(t(txRC_all_LFC1))
   
   plot_pca <- function(pca, sample_names) {
     pca$sdev <- pca$sdev^2
@@ -387,7 +424,8 @@ if (F) {
       # ggforce::geom_mark_ellipse() +
       # stat_ellipse(aes(x = PC1, y = PC2, group = Group), type = "norm") +
       # scale_color_manual(values = colors_20[c(2, 16, 20, 7, 13, 10)]) +
-      xlim(range(pc$PC1) * 1.5 ) + 
+      xlim(range(pc$PC1) + c(-10, 10) ) + 
+      ylim(range(pc$PC2) * 1.2 ) + 
       xlab(paste0("PC1 ", round(pc_var[1]), "% variance")) +
       ylab(paste0("PC2 ", round(pc_var[2]), "% variance")) +
       theme_setting + 
@@ -395,9 +433,36 @@ if (F) {
   }
   
   plot_pca(pca = pca_all_LFC, sample_names = gsub("^X", "", colnames(txRC_all_LFC))) + 
-    ggtitle("Pluripotent genes log2FC (n=36)")
+    ggtitle("State specific genes log2FC (n = 843, |padj| < 0.05)")
   
-  ggsave(filename = "FigS1_PCA_2i_mTORi_log2FC_public_data_comparison.png", 
+  ggsave(filename = "FigS1_PCA_2i_mTORi_log2FC_public_data_comparison4.png", 
          path = "../figS1/figs",
-         device = "png", width = 5, height = 5)
+         device = "png", width = 6, height = 5)
+  
+  # filter significant changes 
+  # 2i
+  plot_scatter(data.frame(x = txRC_all_LFC$X2i_2d, 
+                          y = txRC_all_LFC$Bulut_v6.5_2i), 
+               .xlab = "Log2FC FRNA 2i 2d", .ylab = "log2FC Bulut et al. 2i",
+               xlim = c(-3.5, 3.5), ylim = c(-3.5, 3.5))
+  ggsave(filename = "Fig2_scatter_FRNA_log2FC_2i_2d_Bulut_v6.5_2i.png", 
+         path = "../fig2/figs",
+         device = "png", width = 4.5, height = 4.5)
+  # SL2i
+  plot_scatter(data.frame(x = txRC_all_LFC$SL2i_2d, 
+                          y = txRC_all_LFC$Bulut_v6.5_2i), 
+               .xlab = "Log2FC FRNA SL2i 2d", .ylab = "log2FC Bulut et al. 2i",
+               xlim = c(-3.5, 3.5), ylim = c(-3.5, 3.5))
+  ggsave(filename = "Fig2_scatter_FRNA_log2FC_SL2i_2d_Bulut_v6.5_2i.png", 
+         path = "../fig2/figs",
+         device = "png", width = 4.5, height = 4.5)
+  
+  # mTORi
+  plot_scatter(data.frame(x = txRC_all_LFC$mTORi_1d, 
+                          y = txRC_all_LFC$Bulut_mTORi), 
+               .xlab = "Log2FC FRNA mTORi 1d", .ylab = "log2FC Bulut et al. mTORi 14d", 
+               xlim = c(-3.5, 3.5), ylim = c(-3.5, 3.5))
+  ggsave(filename = "Fig2_scatter_FRNA_log2FC_mTORi_1d_Bulut_v6.5_mTORi.png", 
+         path = "../fig2/figs",
+         device = "png", width = 4.5, height = 4.5)
 }
