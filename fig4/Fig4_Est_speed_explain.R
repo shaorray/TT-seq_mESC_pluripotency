@@ -55,7 +55,7 @@ data_cor <- data.frame(Correlation = multi_variance_explained(gene.features1,
                        )
 data_cor$Type <- factor(data_cor$Type, levels = unique(data_cor$Type))
 
-# plot
+# (Fig 4) plot
 library(ggpubr)
 g1 <- ggdotchart(data_cor, x = "Feature", y = "Correlation",
            color = "Type",                               
@@ -266,7 +266,7 @@ ggsave(plot = grid.arrange(g2.1, g2.2, g2.3, g2.4, g2.5, g2.6, nrow = 2),
        device = "png", width = 10, height = 6.5)
 
 # ------------------------------------------------------------------------------------ #
-# log2FC comparison of LRNA, velocity and pausing
+# (Fig EV5) log2FC comparison of LRNA, velocity and pausing
 LRNA_log2FC <- mcols(TU.DE.mm10.gr)[!is.na(TU.DE.mm10.gr$gene_id),
                                     c("log2FoldChange_LRNA_sp_2i", "log2FoldChange_LRNA_sp_mTORi")]
 rownames(LRNA_log2FC) <- TU.DE.mm10.gr$gene_id[!is.na(TU.DE.mm10.gr$gene_id)]
@@ -338,7 +338,7 @@ ggsave(plot = grid.arrange(g1, g2, g3, g4, g5, g6, nrow = 2),
        device = "png", width = 10, height = 6.5)
 
 # ------------------------------------------------------------------------------------ #
-# faster elongating genes in 2i
+# (Fig EV5) faster elongating genes in 2i
 
 faster_gene_2i <- rownames(est_speed_log2FC)[est_speed_log2FC[, 1] > 1.5 & is.finite(est_speed_log2FC[, 1])]
 slower_gene_2i <- rownames(est_speed_log2FC)[est_speed_log2FC[, 1] < (-3) & is.finite(est_speed_log2FC[, 1])]
@@ -372,7 +372,12 @@ write.table(rbind(tmp_m, tmp_nc),
             file = "../fig4/data/Est_transcription_velocity_mm9.txt",
             quote = F, row.names = F)
 
+library(openxlsx)
+write.xlsx(rbind(tmp_m, tmp_nc), 
+           file = "../fig4/data/Est_transcription_velocity_mm9.xlsx")
+
 # ------------------------------------------------------------------------------ #
+# (Author Response to Reviewer 3) velocity neighboring effect 
 # the same process as "Fig2_TU_coexpression.R"
 if (T) {
   TU.intergenic.mm9.gr <- TU.nc.mm9[TU.nc.mm9$location == "intergenic"]
@@ -579,3 +584,7 @@ if (T) {
          path = "../figS4/figs/", device = "png", width = 5, height = 4)
   
 }
+
+
+
+
