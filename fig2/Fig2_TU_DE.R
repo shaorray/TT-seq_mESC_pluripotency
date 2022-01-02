@@ -169,7 +169,7 @@ ggsave(filename = "Fig2_sample_log_expression_bin_correlation.png",
        path = "../fig2/figs/", width = 5, height = 4, device = "png")
 
 
-# measure TU interval consistency with jaccard coefficient
+# (Fig EV3) measure TU interval consistency with jaccard coefficient
 jaccard_list <- jaccard_index_pair(TU.list)
 
 g1 <- ggplot(jaccard_list[["protein_coding"]],
@@ -220,7 +220,7 @@ ggsave(plot = grid.arrange(g1, g2, g3, g4, nrow = 1, widths = c(3,3,3,4)),
        device = "png", width = 14, height = 3.5)
 
 # ------------------------------------------------------------------------------------
-# TUs LRNA and FRNA correlation by locations
+# (Fig EV3) TUs LRNA and FRNA correlation by locations
 cor_dat <- data.frame()
 for (i in c("mRNA", "intergenic", "uaRNA", "asRNA")) {
   idx <- TU.DE.mm9.gr$location == i
@@ -274,7 +274,7 @@ ggsave(filename = paste0("FigS2_TU_expr_correlation.png"),
        device = "png", width = 9, height = 3)
 
 # ------------------------------------------------------------------------------------
-# log2FC ~ Evolution conservation + direction
+# (Fig EV3) log2FC ~ Evolution conservation + direction
 
 dat_phasrCons <- data.frame(Type = TU.DE.intergenic$enhancer_direction,
                             phastCons = TU.DE.intergenic$mm10.60way.phastCons)
@@ -301,7 +301,7 @@ ggsave(filename = "FigS2_phastCons_intergenic_TU_TSS.png",
 
 
 # ------------------------------------------------------------------------------------
-# explain transcription variation with CpG intensity. scBS-seq
+# (not shown) explain transcription variation with CpG intensity. scBS-seq
 TU.scCpG.mm9 <- .countBW(list.files("/mnt/0E471D453D8EE463/GEO_bw/CpG/scBS", 
                                     ".bw$", full.names = T),
                          intervals = TU.DE.mm9.gr, fast = F)
@@ -399,12 +399,12 @@ ggsave(filename = "figs/Fig2_TU_methylation_tx.png",
        width = 3.5, height = 6, device = "png")
 
 # ---------------------------------------------------------------------------------- #
-# variance of FRNA log2FC explained by LRNA log2FC
+# (Fig EV3) variance of FRNA log2FC explained by LRNA log2FC
 TU.DE.mm9.log2FC <- data.frame(location = TU.DE.mm9.gr$location,
-                               LRNA_lfc_2i = TU.DE.mm9.gr$log2FoldChange_LRNA_2i,
-                               FRNA_lfc_2i = TU.DE.mm9.gr$log2FoldChange_FRNA_2i,
-                               LRNA_lfc_mTORi = TU.DE.mm9.gr$log2FoldChange_LRNA_mTORi,
-                               FRNA_lfc_mTORi = TU.DE.mm9.gr$log2FoldChange_FRNA_mTORi) %>%
+                               LRNA_lfc_2i = TU.DE.mm9.gr$log2FoldChange_LRNA_sp_2i,
+                               FRNA_lfc_2i = TU.DE.mm9.gr$log2FoldChange_FRNA_sp_2i,
+                               LRNA_lfc_mTORi = TU.DE.mm9.gr$log2FoldChange_LRNA_sp_mTORi,
+                               FRNA_lfc_mTORi = TU.DE.mm9.gr$log2FoldChange_FRNA_sp_mTORi) %>%
   dplyr::filter(complete.cases(.))
 
 dat_F_L <- NULL
@@ -429,7 +429,38 @@ ggplot(dat_F_L, aes(x = Type, y = Cor, fill = Sample)) +
 ggsave(filename = "../figS2/figs/FigS2_log2FC_correlation_FRNA_LRNA.png",
        width = 6, height = 5, device = "png")
 
-# mTORi Bulut et al. RNA-seq comparison
+g1 <- TU.DE.mm9.log2FC[TU.DE.mm9.log2FC$location == "mRNA", 2:3] %>%
+  ggplot(aes(x = FRNA_lfc_2i, y = LRNA_lfc_2i, 
+             color = get_dens(FRNA_lfc_2i, LRNA_lfc_2i, n.grid = 100))) +
+  geom_point(cex = 0.5) +
+  annotate("text", x = -Inf, y = Inf,
+           hjust = -0.5, vjust = 1.2, 
+           label = paste0(" r = ", 0.626, "\nn = ", 12007)) +
+  scale_color_viridis_c(option = "A", direction = -1, begin = 0.1, end = 0.9) +
+  xlab("Total RNA log2FC") + ylab("Labeled RNA log2FC") + ggtitle("mRNA (2i_2d vs SL)") +
+  xlim(c(-5, 4)) + ylim(c(-5, 4)) +
+  theme_setting +
+  theme(legend.position = "none")
+
+g2 <- TU.DE.mm9.log2FC[TU.DE.mm9.log2FC$location == "mRNA", 4:5] %>%
+  ggplot(aes(x = FRNA_lfc_mTORi, y = LRNA_lfc_mTORi, 
+             color = get_dens(FRNA_lfc_mTORi, LRNA_lfc_mTORi, n.grid = 100))) +
+  geom_point(cex = 0.5) +
+  annotate("text", x = -Inf, y = Inf,
+           hjust = -0.5, vjust = 1.2, 
+           label = paste0(" r = ", 0.64, "\nn = ", 12007)) +
+  scale_color_viridis_c(option = "A", direction = -1, begin = 0.1, end = 0.9) +
+  xlab("Total RNA log2FC") + ylab("Labeled RNA log2FC") + ggtitle("mRNA (mTORi_1d vs SL)") +
+  xlim(c(-5, 4)) + ylim(c(-5, 4)) +
+  theme_setting +
+  theme(legend.position = "none")
+
+ggsave(grid.arrange(g1, g2, ncol = 1),
+       filename = "../figS2/figs/FigS2_scatter_log2FC_correlation_FRNA_LRNA.png",
+       width = 5, height = 7, device = "png")
+
+# ---------------------------------------------------------------------------------- #
+# (Fig EV1) mTORi Bulut et al. RNA-seq comparison
 Tx_mm9_Bulut <- list.files('/mnt/0E471D453D8EE463/GEO_SL_2i_RNA/output', full.names = T) %>% paste0("/abundance.tsv") %>% 
   SummarizedExperiment::readKallisto(as = 'matrix', what = "est_counts")  %>% 
   as.data.frame() %>%
