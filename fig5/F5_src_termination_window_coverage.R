@@ -1,30 +1,4 @@
 
-# if (!file.exists("data/terWindow.cov.MINUTE_normed_Pol2S5p.SL.2i.RData"))
-# {
-# 
-#   cov.terWindow.list = readBam(bam_files = list.files(path = "/mnt/E0767589767560E8/UPPMAX/PUBLISH/bam",
-#                                                       pattern = "P1.*5p.*ALL.*bam$", full.names = T),
-#                                intervals = terWindow,
-#                                pair_end = T,
-#                                stranded = F,
-#                                flanks = c(2000, 15000),
-#                                new_lens = c(50, 50, 200))
-#   
-#   input_files = list.files(path = "/mnt/E0767589767560E8/UPPMAX/PUBLISH/bam",
-#                            pattern = "P1.*IN_.*ALL.*bam$", full.names = T)
-# 
-#   sf = SizeFactorCal(.countBam(bam_files = input_files, 
-#                                intervals = terWindow))
-#   
-#   # normalize coverages
-#   cov.terWindow.list_normed <- list()
-#   for( i in seq_along(sf) )
-#     cov.terWindow.list_normed <- c(cov.terWindow.list_normed,
-#                                   list(cov.terWindow.list[[i]] / sf[i]))
-#   
-#   saveRDS(cov.terWindow.list_normed, "data/terWindow.cov.MINUTE_normed_Pol2S5p.SL.2i.RData")
-# }
-
 if (!file.exists("data/nascent.terWin.cov_norm.RData")) {
   # process bam coverage on termination windows
   # Pol2S5p
@@ -75,22 +49,6 @@ if (!file.exists("data/nascent.terWin.cov_norm.RData")) {
                                                      pattern = "out.bam$", full.names = T),
                                           list.files("/mnt/0E471D453D8EE463/nascent_RNA_mm9/2018_Marta_ESC_2_PRO-Seq_ctrl/bam",
                                                      pattern = "out.bam$", full.names = T))
-                       # "Williams_C2_2i_GROseq" = list.files("/mnt/0E471D453D8EE463/GEO_nascent_RNA/2015_Williams_Bl6_mESC_C2cells_GROseq",
-                       #                                      pattern = "2i_GRO.*bam$", full.names = T),
-                       # "Flynn_GROseq" = c(list.files("/mnt/0E471D453D8EE463/nascent_RNA_mm9/2016_Flynn_GRO-seq-mES-12hrKD_Control1/bam",
-                       #                               pattern = "out.bam$", full.names = T),
-                       #                    list.files("/mnt/0E471D453D8EE463/nascent_RNA_mm9/2016_Flynn_GRO-seq-mES-12hrKD_Control2/bam",
-                       #                               pattern = "out.bam$", full.names = T),
-                       #                    list.files("/mnt/0E471D453D8EE463/nascent_RNA_mm9/2016_Flynn_GRO-seq-mES-12hrKD_Control3/bam",
-                       #                               pattern = "out.bam$", full.names = T),
-                       #                    list.files("/mnt/0E471D453D8EE463/nascent_RNA_mm9/2016_Flynn_GRO-seq-mES-12hrKD_Control4/bam",
-                       #                               pattern = "out.bam$", full.names = T)),
-                       # "Dorighi_GROseq" = list.files("/mnt/0E471D453D8EE463/nascent_RNA_mm9/2017_Dorighi_Gro-seq_WT/bam",
-                       #                               pattern = "out.bam$", full.names = T),
-                       # "Mylonas_NETseq" = c(list.files("/mnt/0E471D453D8EE463/nascent_RNA_mm9/2018_Mylonas_NET-seq_Control_rep1/bam",
-                       #                                 pattern = "out.bam$", full.names = T),
-                       #                      list.files("/mnt/0E471D453D8EE463/nascent_RNA_mm9/2018_Mylonas_NET-seq_Control_rep2/bam",
-                       #                                 pattern = "out.bam$", full.names = T))
                        )
   
   nascent.terWin.cov = lapply(bam.file.iist, .coverBam, 
